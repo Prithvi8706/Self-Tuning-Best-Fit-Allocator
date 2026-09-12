@@ -1,0 +1,492 @@
+{
+ "genome": {
+  "pressure": 0.05,
+  "phases": [
+   [
+    {
+     "kind": "lognormal",
+     "weight": 0.959,
+     "median": 65.6,
+     "sigma": 0.086,
+     "life": 4435
+    },
+    {
+     "kind": "const",
+     "weight": 0.717,
+     "value": 1323,
+     "life": 160
+    },
+    {
+     "kind": "const",
+     "weight": 0.879,
+     "value": 962,
+     "life": 27
+    }
+   ],
+   [
+    {
+     "kind": "const",
+     "weight": 0.995,
+     "value": 1644,
+     "life": 35
+    },
+    {
+     "kind": "const",
+     "weight": 0.233,
+     "value": 1497,
+     "life": 1
+    }
+   ]
+  ],
+  "schedule": "shift",
+  "at": 11818
+ },
+ "rows": [
+  {
+   "seed": 30000,
+   "metric": "failed_allocations",
+   "best_fit": 112,
+   "arbf": 130,
+   "random": 151,
+   "arbf_deviations": 435,
+   "random_deviations": 455
+  },
+  {
+   "seed": 30001,
+   "metric": "failed_allocations",
+   "best_fit": 10,
+   "arbf": 69,
+   "random": 22,
+   "arbf_deviations": 339,
+   "random_deviations": 345
+  },
+  {
+   "seed": 30002,
+   "metric": "failed_allocations",
+   "best_fit": 119,
+   "arbf": 71,
+   "random": 85,
+   "arbf_deviations": 366,
+   "random_deviations": 373
+  },
+  {
+   "seed": 30003,
+   "metric": "failed_allocations",
+   "best_fit": 194,
+   "arbf": 124,
+   "random": 288,
+   "arbf_deviations": 288,
+   "random_deviations": 340
+  },
+  {
+   "seed": 30004,
+   "metric": "failed_allocations",
+   "best_fit": 410,
+   "arbf": 317,
+   "random": 179,
+   "arbf_deviations": 253,
+   "random_deviations": 253
+  },
+  {
+   "seed": 30005,
+   "metric": "failed_allocations",
+   "best_fit": 82,
+   "arbf": 137,
+   "random": 57,
+   "arbf_deviations": 361,
+   "random_deviations": 372
+  },
+  {
+   "seed": 30006,
+   "metric": "failed_allocations",
+   "best_fit": 29,
+   "arbf": 72,
+   "random": 131,
+   "arbf_deviations": 297,
+   "random_deviations": 388
+  },
+  {
+   "seed": 30007,
+   "metric": "failed_allocations",
+   "best_fit": 53,
+   "arbf": 56,
+   "random": 37,
+   "arbf_deviations": 441,
+   "random_deviations": 419
+  },
+  {
+   "seed": 30008,
+   "metric": "failed_allocations",
+   "best_fit": 156,
+   "arbf": 167,
+   "random": 450,
+   "arbf_deviations": 318,
+   "random_deviations": 337
+  },
+  {
+   "seed": 30009,
+   "metric": "failed_allocations",
+   "best_fit": 112,
+   "arbf": 284,
+   "random": 213,
+   "arbf_deviations": 309,
+   "random_deviations": 257
+  },
+  {
+   "seed": 30010,
+   "metric": "failed_allocations",
+   "best_fit": 222,
+   "arbf": 181,
+   "random": 167,
+   "arbf_deviations": 371,
+   "random_deviations": 369
+  },
+  {
+   "seed": 30011,
+   "metric": "failed_allocations",
+   "best_fit": 69,
+   "arbf": 198,
+   "random": 117,
+   "arbf_deviations": 462,
+   "random_deviations": 493
+  },
+  {
+   "seed": 30012,
+   "metric": "failed_allocations",
+   "best_fit": 61,
+   "arbf": 176,
+   "random": 71,
+   "arbf_deviations": 377,
+   "random_deviations": 397
+  },
+  {
+   "seed": 30013,
+   "metric": "failed_allocations",
+   "best_fit": 226,
+   "arbf": 102,
+   "random": 107,
+   "arbf_deviations": 310,
+   "random_deviations": 334
+  },
+  {
+   "seed": 30014,
+   "metric": "failed_allocations",
+   "best_fit": 219,
+   "arbf": 169,
+   "random": 115,
+   "arbf_deviations": 276,
+   "random_deviations": 295
+  },
+  {
+   "seed": 30015,
+   "metric": "failed_allocations",
+   "best_fit": 106,
+   "arbf": 67,
+   "random": 54,
+   "arbf_deviations": 300,
+   "random_deviations": 300
+  },
+  {
+   "seed": 30016,
+   "metric": "failed_allocations",
+   "best_fit": 131,
+   "arbf": 48,
+   "random": 93,
+   "arbf_deviations": 317,
+   "random_deviations": 322
+  },
+  {
+   "seed": 30017,
+   "metric": "failed_allocations",
+   "best_fit": 184,
+   "arbf": 319,
+   "random": 153,
+   "arbf_deviations": 411,
+   "random_deviations": 413
+  },
+  {
+   "seed": 30018,
+   "metric": "failed_allocations",
+   "best_fit": 129,
+   "arbf": 184,
+   "random": 94,
+   "arbf_deviations": 363,
+   "random_deviations": 389
+  },
+  {
+   "seed": 30019,
+   "metric": "failed_allocations",
+   "best_fit": 107,
+   "arbf": 218,
+   "random": 102,
+   "arbf_deviations": 302,
+   "random_deviations": 284
+  },
+  {
+   "seed": 30020,
+   "metric": "failed_allocations",
+   "best_fit": 52,
+   "arbf": 93,
+   "random": 246,
+   "arbf_deviations": 464,
+   "random_deviations": 360
+  },
+  {
+   "seed": 30021,
+   "metric": "failed_allocations",
+   "best_fit": 79,
+   "arbf": 56,
+   "random": 46,
+   "arbf_deviations": 248,
+   "random_deviations": 175
+  },
+  {
+   "seed": 30022,
+   "metric": "failed_allocations",
+   "best_fit": 72,
+   "arbf": 94,
+   "random": 116,
+   "arbf_deviations": 230,
+   "random_deviations": 250
+  },
+  {
+   "seed": 30023,
+   "metric": "failed_allocations",
+   "best_fit": 515,
+   "arbf": 129,
+   "random": 309,
+   "arbf_deviations": 392,
+   "random_deviations": 390
+  },
+  {
+   "seed": 30024,
+   "metric": "failed_allocations",
+   "best_fit": 187,
+   "arbf": 133,
+   "random": 62,
+   "arbf_deviations": 271,
+   "random_deviations": 243
+  },
+  {
+   "seed": 30025,
+   "metric": "failed_allocations",
+   "best_fit": 51,
+   "arbf": 105,
+   "random": 94,
+   "arbf_deviations": 302,
+   "random_deviations": 306
+  },
+  {
+   "seed": 30026,
+   "metric": "failed_allocations",
+   "best_fit": 72,
+   "arbf": 214,
+   "random": 86,
+   "arbf_deviations": 353,
+   "random_deviations": 325
+  },
+  {
+   "seed": 30027,
+   "metric": "failed_allocations",
+   "best_fit": 131,
+   "arbf": 126,
+   "random": 146,
+   "arbf_deviations": 303,
+   "random_deviations": 393
+  },
+  {
+   "seed": 30028,
+   "metric": "failed_allocations",
+   "best_fit": 512,
+   "arbf": 210,
+   "random": 353,
+   "arbf_deviations": 264,
+   "random_deviations": 293
+  },
+  {
+   "seed": 30029,
+   "metric": "failed_allocations",
+   "best_fit": 77,
+   "arbf": 67,
+   "random": 85,
+   "arbf_deviations": 378,
+   "random_deviations": 349
+  },
+  {
+   "seed": 30030,
+   "metric": "failed_allocations",
+   "best_fit": 95,
+   "arbf": 129,
+   "random": 108,
+   "arbf_deviations": 395,
+   "random_deviations": 418
+  },
+  {
+   "seed": 30031,
+   "metric": "failed_allocations",
+   "best_fit": 343,
+   "arbf": 527,
+   "random": 423,
+   "arbf_deviations": 412,
+   "random_deviations": 364
+  },
+  {
+   "seed": 30032,
+   "metric": "failed_allocations",
+   "best_fit": 172,
+   "arbf": 86,
+   "random": 94,
+   "arbf_deviations": 378,
+   "random_deviations": 371
+  },
+  {
+   "seed": 30033,
+   "metric": "failed_allocations",
+   "best_fit": 136,
+   "arbf": 116,
+   "random": 189,
+   "arbf_deviations": 365,
+   "random_deviations": 406
+  },
+  {
+   "seed": 30034,
+   "metric": "failed_allocations",
+   "best_fit": 69,
+   "arbf": 46,
+   "random": 102,
+   "arbf_deviations": 239,
+   "random_deviations": 206
+  },
+  {
+   "seed": 30035,
+   "metric": "failed_allocations",
+   "best_fit": 131,
+   "arbf": 163,
+   "random": 167,
+   "arbf_deviations": 437,
+   "random_deviations": 413
+  },
+  {
+   "seed": 30036,
+   "metric": "failed_allocations",
+   "best_fit": 64,
+   "arbf": 58,
+   "random": 59,
+   "arbf_deviations": 314,
+   "random_deviations": 425
+  },
+  {
+   "seed": 30037,
+   "metric": "failed_allocations",
+   "best_fit": 152,
+   "arbf": 387,
+   "random": 96,
+   "arbf_deviations": 289,
+   "random_deviations": 252
+  },
+  {
+   "seed": 30038,
+   "metric": "failed_allocations",
+   "best_fit": 99,
+   "arbf": 170,
+   "random": 222,
+   "arbf_deviations": 301,
+   "random_deviations": 270
+  },
+  {
+   "seed": 30039,
+   "metric": "failed_allocations",
+   "best_fit": 78,
+   "arbf": 198,
+   "random": 84,
+   "arbf_deviations": 211,
+   "random_deviations": 251
+  },
+  {
+   "seed": 30040,
+   "metric": "failed_allocations",
+   "best_fit": 425,
+   "arbf": 342,
+   "random": 194,
+   "arbf_deviations": 337,
+   "random_deviations": 382
+  },
+  {
+   "seed": 30041,
+   "metric": "failed_allocations",
+   "best_fit": 38,
+   "arbf": 59,
+   "random": 71,
+   "arbf_deviations": 344,
+   "random_deviations": 345
+  },
+  {
+   "seed": 30042,
+   "metric": "failed_allocations",
+   "best_fit": 356,
+   "arbf": 357,
+   "random": 187,
+   "arbf_deviations": 213,
+   "random_deviations": 196
+  },
+  {
+   "seed": 30043,
+   "metric": "failed_allocations",
+   "best_fit": 82,
+   "arbf": 147,
+   "random": 84,
+   "arbf_deviations": 282,
+   "random_deviations": 281
+  },
+  {
+   "seed": 30044,
+   "metric": "failed_allocations",
+   "best_fit": 61,
+   "arbf": 75,
+   "random": 50,
+   "arbf_deviations": 313,
+   "random_deviations": 254
+  },
+  {
+   "seed": 30045,
+   "metric": "failed_allocations",
+   "best_fit": 194,
+   "arbf": 185,
+   "random": 131,
+   "arbf_deviations": 298,
+   "random_deviations": 369
+  },
+  {
+   "seed": 30046,
+   "metric": "failed_allocations",
+   "best_fit": 396,
+   "arbf": 214,
+   "random": 78,
+   "arbf_deviations": 332,
+   "random_deviations": 411
+  },
+  {
+   "seed": 30047,
+   "metric": "failed_allocations",
+   "best_fit": 55,
+   "arbf": 41,
+   "random": 59,
+   "arbf_deviations": 298,
+   "random_deviations": 317
+  }
+ ],
+ "totals": {
+  "best_fit": 7425,
+  "arbf": 7616,
+  "random": 6627
+ },
+ "deviations": {
+  "arbf": 330.3958333333333,
+  "random": 336.4583333333333
+ },
+ "arbf_better_than_random": 21,
+ "arbf_worse_than_random": 27,
+ "p_arbf_vs_random": 0.11126072401906129,
+ "p_arbf_vs_bf": 0.4667978304528688,
+ "p_random_vs_bf": 0.4361136998094395
+}

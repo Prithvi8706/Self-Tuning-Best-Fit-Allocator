@@ -1,0 +1,22 @@
+construction minimal-counterexample
+construction minimal-mirror
+construction rare-large-trap
+construction stale-history-trap
+construction reverse-trap
+construction sliver-blind-spot
+construction scan-cost-blowup
+confirmed trap-0.5 0.0
+outlier shift-disjoint 0.05
+outlier F4-s0.05 0.05
+outlier F8 0.05
+outlier bimodal-rare-5 0.1
+outlier F4-s0.10 0.05
+outlier trap-5 0.02
+outlier F11 unbounded
+outlier huge-few unbounded
+outlier huge unbounded
+search dc42170d99a0
+search 23627427a2bf
+search cc7d7e2ce8ee
+warmup F12 3000
+warmup trap-5 3000
