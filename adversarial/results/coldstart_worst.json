@@ -1,0 +1,9 @@
+{
+ "family": "F4-s0.02",
+ "n_events": 3000,
+ "seed": 187,
+ "pressure": 0.0,
+ "fails_arbf": 18,
+ "fails_best_fit": 11,
+ "fails_best_fit_high": 13
+}

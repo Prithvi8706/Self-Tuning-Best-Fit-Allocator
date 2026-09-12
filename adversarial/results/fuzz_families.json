@@ -1,0 +1,10 @@
+{
+ "decisions": 2262162,
+ "deviations": 11448,
+ "fails": 64715,
+ "scan": 285624,
+ "mismatch": 0,
+ "traces": 216,
+ "violations": [],
+ "seconds": 290.9
+}
