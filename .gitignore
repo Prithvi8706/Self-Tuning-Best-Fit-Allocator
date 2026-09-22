@@ -6,3 +6,4 @@ __pycache__/
 # with `python -m adversarial <stage>`). The derived per-cell summaries (*.json),
 # results/tables.md and the preserved-failure corpus are committed.
 adversarial/results/*.jsonl
+.gstack/
