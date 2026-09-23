@@ -4,6 +4,63 @@
 
 ---
 
+## 0. Presentation brief — the five-minute version
+
+*This page stands alone. Read only this to present the project; everything after it is supporting detail for the written submission.*
+
+**Scope marker used throughout:** headings tagged **[CORE]** are the **61% of the code in scope for this review**. Headings tagged **[EXTENDED]** describe work that is built and passing, but deliberately held outside this submission's scope — see §1.4.
+
+### The four things to say
+
+**1 · The problem — 45 seconds.**
+A memory allocator gets requests one at a time and cannot see the future. Its only decision is *which free block to cut each request out of*. Cut badly and you leave slivers nobody can use: eventually there is plenty of free memory in total but no single block big enough, so the allocation fails. That is **external fragmentation**, and in a fixed-size arena it is a crash, not a slowdown. The standard defence is **Best Fit** — take the smallest block that fits.
+
+**2 · The idea — 60 seconds.**
+Best Fit minimises the *size* of the leftover but never asks whether the leftover is *useful*. Cutting 100 from a 101-block leaves a dead 1-unit sliver. Cutting the same 100 from a 140-block leaves 40 — and if the program keeps asking for 40s, that leftover gets used immediately.
+
+So ARBF remembers the last **738** request sizes and prices each candidate leftover `r` with
+
+> **K(r) = r · (2(n + 1) − c(r))**, where `c(r)` counts remembered requests that fit in `r`.
+
+Small is still cheap (the `r` term), but a leftover that matches what the program actually asks for gets up to a **50% discount**. With no history it is exactly Best Fit, and it never looks past `r < 2·r_BF`, so it can never degenerate into Worst Fit.
+
+**3 · The demo — 60 seconds.** One command:
+
+```
+python -m adversarial constructions
+```
+
+Point at two lines of the output:
+
+| Trace | Best Fit | ARBF |
+|---|---|---|
+| `rare-large-trap` | **0 failures** | **200 failures** |
+| `reverse-trap` | **200 failures** | **0 failures** |
+
+"Same engine, same rules, mirrored workloads. ARBF is catastrophically worse on the first and catastrophically better on the second. **Neither policy dominates** — which is exactly what Robson proved in 1977 for *all* online allocators. So the question is never *is it better*, it is *where is it better, and why*."
+
+**4 · The finding — 90 seconds.**
+
+> ARBF is **not** a general improvement over Best Fit. On most workloads it makes the *identical* placement and just costs ~1.4× the search time. It is **6–38% better** on one identifiable class — a few dominant request sizes, tight memory, leftovers landing just below a popular size. It is **~8% worse** on one specific class — when popular sizes *add up* to another requested size (40 + 100 = 140), because it prices each leftover in isolation and trades a tileable set of holes for an untileable one.
+
+Then the methodology point, which is what makes the finding credible:
+
+"Allocation is **chaotic** — one different placement reshapes the entire future heap, so a single good benchmark run proves nothing. So every trace is also replayed by two controls: **Best Fit with the tie-break flipped**, which measures how big a gap pure noise produces, and a **history-blind random deviator** that deviates exactly as often as ARBF. If ARBF can't beat the blind one, its *learning* isn't what's doing the work. On the one confirmed weakness, ARBF loses even to the blind deviator — that's how we know it's a real defect in the cost function and not luck."
+
+### If asked, the three best answers
+
+| Question | Answer |
+|---|---|
+| "How do you know the code is correct?" | A second, deliberately naive implementation was written straight from the formula — full scan, no shortcuts, no indices — and **4.64 million decisions** were compared one by one. 0 mismatches, 0 property violations. |
+| "Isn't this just tuned to look good?" | The algorithm, the heap model and the 17 workload families were **frozen before any benchmark ran**, and the test suite pins their SHA-256. Any edit fails the build. The confirmatory-rerun rule was fixed in advance too — which is how we caught our own best "ARBF is worse" result collapsing from a fitness of 0.94 to statistical noise on fresh seeds. |
+| "What does it cost?" | ~1.4× Best Fit's search time typically; the `scan-cost-blowup` trace shows a **250×** worst case. That is the honest price, and it is in the report. |
+
+### One-line summary
+
+*A memory allocator that learns which leftover sizes its program actually reuses — together with an adversarial study that establishes exactly where that helps, where it hurts, and why.*
+
+---
+
 ## 1. Introduction
 
 ### 1.1 The problem
@@ -47,6 +104,22 @@ Reaching a conclusion that specific, and being able to defend it, is what most o
 | Test suite | **543 tests, all passing** |
 | Preserved reproducible failures | 23 traces with exact expected outcomes |
 | Total | **~5,033 lines of Python**, dependencies: `pytest`, `scipy` |
+
+### 1.4 Scope of this review — the 61% core
+
+The repository is complete and every test passes. For this submission the code is nevertheless divided into two parts, and **only Part A is presented and defended**. Part A is not "the finished portion" — it is the portion that forms a self-contained, demonstrable prototype: an allocator you can run, a benchmark that measures it, a test suite that verifies it, and a set of traces that prove the central claim.
+
+| | Part | Contents | Lines | Share |
+|---|---|---|---:|---:|
+| **A** | **[CORE] — in scope** | `engine/` (heap model, ALLOC/FREE protocol, all 5 policies, metrics, traces) · `framework/` (laws, 17 frozen workload families, trace generator, replay, benchmark CLI) · 474 of the 543 tests · `adversarial/constructions.py` (the 7 proven traps) | **3,067** | **60.9%** |
+| **B** | [EXTENDED] — built, out of scope | The statistical study: differential fuzzing, the 49-family sweep, confirmatory reruns, Wilcoxon + Benjamini–Hochberg, the two controls, evolutionary search, counterfactual attribution, the preserved-failure corpus, and their 69 tests | 1,966 | 39.1% |
+| | **Total** | | **5,033** | 100% |
+
+The boundary is the repository's own commit boundary. Commit `14ead70` delivered Part A's engine and framework with **474 tests**; commit `499190b` added Part B. The two parts are separable in exactly the way the layering in §3.2 predicts: **Part A runs, benchmarks and verifies the allocator; Part B establishes statistical confidence in what the benchmark shows.**
+
+**What Part A alone can demonstrate.** All five allocation policies running on a verified heap; the full ARBF decision procedure including P1–P5; deterministic, hash-verified trace generation across 17 preregistered workload families; paired benchmarking with fragmentation and failure metrics; 474 passing tests including differential checks against brute force and heap-invariant validation after *every single event*; and the seven handcrafted constructions — including the mirrored 200-vs-0 pair that proves neither policy dominates.
+
+**What only Part B adds.** Not new functionality, but *warranted confidence*: that the observed differences are not chaos. Statements in this report of the form "confirmed on 48 fresh seeds", "q < 0.05 after FDR correction", "loses even to a rate-matched blind deviator" and "4.64 M decisions vs a brute-force oracle" all rest on Part B. Sections carrying those claims are tagged **[EXTENDED]** and are reported here for completeness.
 
 ---
 
@@ -134,7 +207,7 @@ flowchart TB
 
 The dependency arrow points one way only. The study layer generates traces and replays them; it cannot reach into the engine to change behaviour. This is what makes the adversarial results trustworthy — the attacker and the subject are separated by an interface that the attacker cannot modify.
 
-### 3.3 The memory model
+### 3.3 The memory model **[CORE]**
 
 One contiguous address range, tiled by blocks. Two modes:
 
@@ -150,7 +223,7 @@ Mechanism rules, identical for all five policies:
 
 The heap maintains three indices — free blocks by address, free blocks by `(size, addr)`, allocated blocks by id — so `smallest_fitting` and `smallest_size_above` are both `O(log n)`. Without the `(size, addr)` index, ARBF's window scan would dominate runtime.
 
-### 3.4 The ARBF decision procedure
+### 3.4 The ARBF decision procedure **[CORE]**
 
 This is the core of the proposal. Five properties are guaranteed by construction:
 
@@ -191,7 +264,7 @@ This inequality explains the whole envelope, and every experimental result in §
 - With a few dominant sizes, `Ĝ` is a step function, so crossing one popular size can satisfy it in one move: **ARBF deviates and often wins**.
 - With tiny `r_BF`, the required gain approaches `(2 − Ĝ)`, which is unreachable: **ARBF never deviates on small objects.**
 
-### 3.5 Experimental workflow
+### 3.5 Experimental workflow **[EXTENDED]**
 
 ```mermaid title="Experimental workflow, stage 0 to stage 6"
 flowchart LR
@@ -240,31 +313,40 @@ The full pipeline:
 
 ### 4.1 Module inventory
 
-| Layer | Module | Lines | Responsibility |
-|---|---|---:|---|
-| engine | `memory.py` | 260 | Heap: blocks, split, coalesce, three indices, both modes |
-| engine | `allocator.py` | 62 | ALLOC/FREE protocol, FAIL handling, post-decision hook |
-| engine | `algorithms/arbf.py` | **83** | **The subject — ARBF V1, frozen** |
-| engine | `algorithms/best_fit.py` | 12 | Baseline |
-| engine | `algorithms/{first,worst,next}_fit.py` | 58 | Reference policies |
-| engine | `metrics.py` | 49 | External fragmentation, Φ, failure classification |
-| engine | `trace.py` | 83 | Immutable trace representation + validation |
-| framework | `laws.py` | 164 | Uniform, Geometric, Exponential, LogNormal, LogUniform, Mixture |
-| framework | `workloads.py` | 171 | 17 preregistered families |
-| framework | `generator.py` | 101 | Tick model, determinism, SHA-256 hashing |
-| framework | `replay.py` | 192 | Paired replay, metric collection, ARBF diagnostics |
-| framework | `experiment.py` | 104 | JSONL runner |
-| adversarial | `families.py` | 155 | 32 attack workloads |
-| adversarial | `controls.py` | 64 | `BestFitHigh`, `RandomWindow` |
-| adversarial | `fuzz.py` | 159 | Brute-force spec reference + property checks |
-| adversarial | `measure.py` | 167 | `compare`, `probe`, `blame` |
-| adversarial | `stats.py` | 132 | Wilcoxon, BH FDR, effect thresholds |
-| adversarial | `search.py` | 264 | Evolutionary search over workload genomes |
-| adversarial | `constructions.py` | 208 | 7 traps with proven outcomes |
-| adversarial | `corpus.py` + `build_corpus.py` | 314 | Preserved-failure corpus |
-| tests | 12 test modules | 1,617 | **543 tests** |
+The **Part** column marks the scope boundary from §1.4. Part A totals **3,067 lines (60.9%)**; §4.2–4.5 and §5.1–5.2 explain it. Part B is listed for completeness and summarised in §4.6–4.9.
 
-### 4.2 Engine — the allocator protocol
+| Part | Layer | Module | Lines | Responsibility |
+|:---:|---|---|---:|---|
+| **A** | engine | `memory.py` | 260 | Heap: blocks, split, coalesce, three indices, both modes |
+| **A** | engine | `allocator.py` | 62 | ALLOC/FREE protocol, FAIL handling, post-decision hook |
+| **A** | engine | `algorithms/arbf.py` | **83** | **The subject — ARBF V1, frozen** |
+| **A** | engine | `algorithms/best_fit.py` | 12 | Baseline |
+| **A** | engine | `algorithms/{first,worst,next}_fit.py` | 58 | Reference policies |
+| **A** | engine | `metrics.py` | 49 | External fragmentation, Φ, failure classification |
+| **A** | engine | `trace.py` | 83 | Immutable trace representation + validation |
+| **A** | framework | `laws.py` | 164 | Uniform, Geometric, Exponential, LogNormal, LogUniform, Mixture |
+| **A** | framework | `workloads.py` | 171 | 17 preregistered families |
+| **A** | framework | `generator.py` | 101 | Tick model, determinism, SHA-256 hashing |
+| **A** | framework | `replay.py` | 192 | Paired replay, metric collection, ARBF diagnostics |
+| **A** | framework | `experiment.py` + `__main__.py` | 157 | JSONL runner and benchmark CLI |
+| **A** | study | `constructions.py` | 208 | 7 traps with proven outcomes |
+| **A** | tests | 11 test modules | 1,454 | **474 tests** |
+| | | **Part A total** | **3,067** | **60.9%** |
+| B | study | `families.py` | 155 | 32 attack workloads |
+| B | study | `controls.py` | 64 | `BestFitHigh`, `RandomWindow` |
+| B | study | `fuzz.py` | 159 | Brute-force spec reference + property checks |
+| B | study | `measure.py` | 167 | `compare`, `probe`, `blame` |
+| B | study | `stats.py` | 132 | Wilcoxon, BH FDR, effect thresholds |
+| B | study | `search.py` | 264 | Evolutionary search over workload genomes |
+| B | study | `sweep.py`, `confirm.py`, `coldstart.py` | 126 | Staged experiment drivers |
+| B | study | `corpus.py` + `build_corpus.py` | 314 | Preserved-failure corpus |
+| B | study | `mechanisms.py`, `report.py`, `informativeness.py`, `__main__.py` | 422 | Attribution, tables, control runs, study CLI |
+| B | tests | `test_adversarial.py` | 163 | **69 tests** incl. the SHA-256 freeze guard |
+| | | **Part B total** | **1,966** | **39.1%** |
+
+*Package `__init__.py` files (13 lines across Part A, already counted in the totals) are omitted from the rows. Totals are from `wc -l`; test counts are from `pytest --collect-only`.*
+
+### 4.2 Engine — the allocator protocol **[CORE]**
 
 Every policy inherits one protocol. A policy author writes exactly one method, and cannot accidentally change the mechanism.
 
@@ -302,7 +384,7 @@ class BestFit(Allocator):
         return self.heap.smallest_fitting(size)
 ```
 
-### 4.3 Engine — ARBF V1 (the subject)
+### 4.3 Engine — ARBF V1 (the subject) **[CORE]**
 
 The complete policy. Note `_count_le` on a sorted multiset (`O(log n)`), exact integer arithmetic in `cost` (no floating-point ties), and the P2/P5/P4 steps in order.
 
@@ -355,7 +437,7 @@ class ARBF(Allocator):
 
 Three implementation details carry real weight. **Strict `<`** in the comparison implements the lexicographic `(K, size, addr)` tie-break without a second sort key. **`smallest_size_above`** skips duplicate sizes, so the scan visits distinct sizes only. **`_record_request` runs after the decision and also on FAIL**, so a request the allocator could not serve still teaches it that the size is popular.
 
-### 4.4 Framework — deterministic trace generation
+### 4.4 Framework — deterministic trace generation **[CORE]**
 
 Traces are generated, validated and hashed **before** any allocator runs. Determinism comes from a *string*-seeded RNG, which Python hashes with SHA-512 — stable across processes and platforms, unlike integer seeding.
 
@@ -381,7 +463,7 @@ def generate_trace(family, seed, n_events, alloc_prob=1.0) -> GeneratedTrace:
 
 `peak_live` — the maximum live memory if every allocation succeeded — is a property of the *trace*, not of any allocator. It is what makes memory pressure comparable: the FIXED arena is set to `H = ⌈(1 + margin) · peak_live⌉`, so `margin = 0` means the trace exactly fills the arena in the best case and *any* fragmentation causes failure.
 
-### 4.5 Framework — the 17 preregistered families
+### 4.5 Framework — the 17 preregistered families **[CORE]**
 
 Parameters were fixed before any run. Each family carries a **role** declaring its prediction in advance, which is what makes the sweep a test rather than a fishing expedition:
 
@@ -394,7 +476,7 @@ Parameters were fixed before any run. Each family carries a **role** declaring i
 
 `F12` is the pre-registered hypothesis about ARBF's *weakness*, written down before it was tested: if 40 and 100 are popular and 140 is rare, then `40 + 100 = 140` composes, and ARBF should mis-price the leftovers. §6 reports what happened.
 
-### 4.6 Adversarial — the brute-force differential reference
+### 4.6 Study — the brute-force differential reference **[EXTENDED]**
 
 To prove the optimised implementation is correct, a deliberately naive one is written from the specification — full scan, no pruning, no index — and every decision is compared.
 
@@ -430,7 +512,7 @@ SIZE_DRAWS = {
 
 Each decision is additionally checked against P1–P4 directly. **Result: 4.64 million decisions, 14,359 of them deviations from Best Fit, 0 mismatches and 0 property violations.** This is the evidence behind the claim "no implementation bug", and it is stronger than any number of passing unit tests, because the oracle is independent of the code it checks.
 
-### 4.7 Adversarial — the controls
+### 4.7 Study — the controls **[EXTENDED]**
 
 `RandomWindow` is the decisive control and its implementation matters for a practical reason: enumerating the P4 window on every allocation made the job take over an hour, so the window is only materialised when the coin actually says "deviate".
 
@@ -459,7 +541,7 @@ class RandomWindow(BestFit):
 
 The lazy version was verified to be RNG-identical to the eager one (same 300 opportunities, 164 deviations).
 
-### 4.8 Adversarial — statistics
+### 4.8 Study — statistics **[EXTENDED]**
 
 ```python
 def bh(pvalues):
@@ -480,7 +562,7 @@ MIN_UNB_RATIO = 0.005   # practical threshold: >= 0.5% larger/smaller footprint
 
 A cell counts as "worse" or "better" only if `q < 0.05` **and** the effect clears the practical threshold. Statistical significance alone is not enough — with 3,528 paired runs, trivially small effects would otherwise pass.
 
-### 4.9 Adversarial — counterfactual attribution
+### 4.9 Study — counterfactual attribution **[EXTENDED]**
 
 When ARBF fails where Best Fit does not, "why" is answered mechanically rather than by narrative. The trace is replayed with **one** deviation forced back to Best Fit's choice; if the later failure disappears, that deviation is the culprit.
 
@@ -507,7 +589,7 @@ This is what lets a corpus entry state a *mechanism* rather than an outcome. For
 
 ## 5. Prototype — Functionality Implemented
 
-### 5.1 Working command-line interfaces
+### 5.1 Working command-line interfaces **[CORE]**
 
 Two CLIs. The benchmark runner:
 
@@ -540,7 +622,7 @@ python -m adversarial corpus          # rebuild the preserved-failure corpus
 python -m adversarial verify          # replay every corpus entry, check outcome
 ```
 
-### 5.2 The constructions — exact, proven, reproducible
+### 5.2 The constructions — exact, proven, reproducible **[CORE]**
 
 ```bash
 $ python -m adversarial constructions
@@ -556,7 +638,7 @@ scan-cost-blowup        BF fails   0  ARBF fails   0   inspected/alloc BF 1.0 AR
 
 This one screen carries the project's central claim. **`rare-large-trap`**: ARBF fails 200 times, Best Fit never. **`reverse-trap`**: the mirror image, Best Fit fails 200 times, ARBF never. Neither policy dominates — exactly as Robson's theory predicts, now demonstrated concretely on this pair of policies. **`minimal-counterexample`** is 5 events long: the smallest input on which ARBF loses at all. **`scan-cost-blowup`** isolates the price: identical failures, **250× the blocks inspected**.
 
-### 5.3 The preserved-failure corpus
+### 5.3 The preserved-failure corpus **[EXTENDED]**
 
 ```bash
 $ python -m adversarial verify
@@ -573,21 +655,28 @@ OK   warmup-F12-3000-0.0: ok
 
 Every entry stores the gzipped trace in canonical `A id size` / `F id` form, its SHA-256, the exact arena, the expected outcome for both policies, its classification, the blind-deviator control result, and the culprit decision found by counterfactual replay.
 
-### 5.4 Verification
+### 5.4 Verification **[CORE: 474 tests] [EXTENDED: 69 tests]**
 
 ```bash
 $ python -m pytest -q
 543 passed in 147.21s
 ```
 
-| Test module | Verifies |
-|---|---|
-| `test_memory.py`, `test_invariants.py` | Heap invariants after **every** event; no overlap, correct coalescing |
-| `test_arbf.py` | K(r) by hand, P1–P5, window eviction, exact-fit priority |
-| `test_baselines.py` | All four reference policies against brute force |
-| `test_generator.py` | Determinism **across processes**, SHA-256 stability, peak-live correctness |
-| `test_replay.py` | Identical traces per policy, no future-event access, metric correctness |
-| `test_adversarial.py` | All 23 corpus outcomes + **SHA-256 freeze guard on `engine/`** |
+**Part A accounts for 474 of those tests**; the 69 in `test_adversarial.py` belong to Part B.
+
+| Part | Test module | Tests | Verifies |
+|:---:|---|---:|---|
+| **A** | `test_invariants.py` | 120 | Heap invariants after **every** event; no overlap, correct coalescing |
+| **A** | `test_allocator.py` | 105 | ALLOC/FREE protocol, FAIL semantics, both heap modes |
+| **A** | `test_replay.py` | 64 | Identical traces per policy, no future-event access, metric correctness |
+| **A** | `test_memory.py` | 36 | Split, coalesce, the three free-block indices |
+| **A** | `test_generator.py` | 34 | Determinism **across processes**, SHA-256 stability, peak-live correctness |
+| **A** | `test_laws.py` | 31 | Size and lifetime distributions |
+| **A** | `test_baselines.py` | 29 | All four reference policies against brute force |
+| **A** | `test_arbf.py` | 23 | K(r) by hand, P1–P5, window eviction, exact-fit priority |
+| **A** | `test_trace.py`, `test_experiment.py`, `test_metrics.py` | 32 | Trace validation, JSONL runner, EF and Φ |
+| | | **474** | **Part A** |
+| B | `test_adversarial.py` | 69 | All 23 corpus outcomes + **SHA-256 freeze guard on `engine/`** |
 
 The freeze guard deserves a note, because it is what makes the study's premise enforceable rather than a promise:
 
@@ -604,7 +693,7 @@ Any edit to the algorithm under study fails the test suite. The experiment canno
 
 ---
 
-## 6. Results — the Operating Envelope
+## 6. Results — the Operating Envelope **[EXTENDED]**
 
 ### 6.1 What the study found
 
