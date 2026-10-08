@@ -376,7 +376,7 @@ python -m adversarial sweep                         # Stage 1  (~17 min)
 python -m adversarial confirm                       # Stage 1b (~10 min)
 python -m adversarial search                        # Stage 2  (~25 min, both directions + validation + replication)
 python -m adversarial coldstart                     # Stage 4  (~5 min)
-python -c "from adversarial import informativeness as i; i.run('adversarial/results/informativeness.jsonl', seeds=range(2000, 2048))"
+python -m adversarial informativeness               # Stage 3  (10-family control + the replicated search genome)
 python -m adversarial summarize                     # results/tables.md
 python -m adversarial corpus                        # rebuild corpus/ ; python -m adversarial verify
 ```
