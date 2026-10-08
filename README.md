@@ -32,19 +32,43 @@ Neither policy dominates: the same construction mirrored makes **Best Fit** fail
 | `framework/` | Trace generator, 17 preregistered workload families, replay + metrics, experiment CLI. |
 | `adversarial/` | The study: 32 adversarial workloads, fuzzing, statistics, controls, 23 preserved failures. |
 | `adversarial/REPORT.md` | **← read this one.** Full write-up: method, results, mechanisms, operating envelope, limitations. |
-| `tests/` | 543 tests: spec properties, differential tests vs brute force, every preserved failure. |
+| `simulator/` + `web/` | Interactive simulator UI (visualization only — it drives the frozen engine and the benchmark, never re-implements a policy). |
+| `tests/` | 586 tests: spec properties, differential tests vs brute force, every preserved failure, simulator ↔ benchmark agreement. |
 
 ~5,000 lines of Python, no dependencies beyond `pytest` and `scipy` (statistics only).
 
 ### Run it
 
 ```bash
-python -m pytest -q                                   # 543 tests, ~2.5 min
+python -m pytest -q                                   # 586 tests, ~2.5 min
 python -m framework --workloads F5 F12 --seeds 1 2 --margin 0.25 \
        --n-events 20000 --out results.jsonl           # benchmark ARBF vs the baselines
 python -m adversarial constructions                   # the handcrafted traps, with their exact outcomes
 python -m adversarial verify                          # replay all 23 preserved failures
 ```
+
+### Simulator UI
+
+A browser front end for demonstrating the allocator: step through any workload and watch the heap, see *why* ARBF
+chose each block (its scores, read from the live allocator), compare all five policies on one trace, and run
+multi-seed experiments with confidence intervals.
+
+```bash
+cd web && npm install && npm run build && cd ..       # once (Node 18+); builds web/dist
+python -m simulator                                   # then open http://127.0.0.1:8000
+```
+
+* **Simulation** — generated family, hand-written trace (`ALLOC A1 100` / `FREE A1`) or a preserved study trace;
+  Run / Pause / Step / Reset / Run all (keys: Space, →, ←, Home, End). Switching algorithm keeps the current operation.
+* **Compare** — one trace (shown by its SHA-256), replayed by every selected policy; numbers are
+  `framework.replay.replay` records, findings sentences are generated from them.
+* **Experiments** — `framework.experiment.run_experiment` per seed; mean, median, SD, 95% CI, and paired differences
+  against Best Fit with the study's Wilcoxon signed-rank test.
+* **Presentation mode** — larger type, configuration hidden, the ARBF score breakdown shown by default.
+
+For frontend development run `python -m simulator` and `npm run dev` in `web/` (Vite proxies `/api`).
+`tests/test_simulator.py` checks that every number the UI shows equals the benchmark's and that every ARBF
+explanation agrees with the engine's own decision.
 
 ### How the study was done
 
