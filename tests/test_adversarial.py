@@ -1,6 +1,7 @@
 """The adversarial study: frozen code untouched, constructions behave exactly as
 claimed, the differential fuzz is clean, and every preserved failure reproduces."""
 import hashlib
+import json
 import os
 import random
 
@@ -11,7 +12,7 @@ from adversarial.controls import BestFitHigh, random_window
 from adversarial.measure import compare, probe
 from engine.algorithms import ARBF, BestFit
 from engine.algorithms.arbf import W
-from engine.memory import Block, Heap, Mode
+from engine.memory import Block, Mode
 from engine.trace import Op
 from helpers import build_fixed_layout, random_trace
 
@@ -148,7 +149,7 @@ def test_random_window_with_p_zero_is_best_fit():
 
 # -------------------------------------------------------------------- corpus
 
-ENTRIES = corpus.load_manifest() if os.path.exists(corpus.MANIFEST) else []
+ENTRIES = corpus.load_manifest()
 
 
 @pytest.mark.parametrize("entry", ENTRIES, ids=[e["name"] for e in ENTRIES])
@@ -161,3 +162,18 @@ def test_preserved_failure_reproduces_exactly(entry):
 def test_preserved_trace_regenerates_from_its_seed(entry):
     from framework.generator import trace_sha256
     assert trace_sha256(corpus.regenerate(entry)) == entry["sha256"]
+
+
+def test_summaries_fall_back_to_committed_results_without_raw_records():
+    """On a fresh clone the gitignored raw *.jsonl are absent: summarize must not overwrite
+    the study's committed summaries with empty ones."""
+    from adversarial import report
+    path = os.path.join(report.RESULTS, "sweep_cells.json")
+    if os.path.exists(os.path.join(report.RESULTS, "sweep.jsonl")):
+        pytest.skip("raw sweep records present; this checks the fresh-clone path")
+    with open(path, "rb") as f:
+        before = f.read()
+    cells = report.sweep_cells()
+    with open(path, "rb") as f:
+        assert f.read() == before
+    assert cells and cells == json.loads(before)

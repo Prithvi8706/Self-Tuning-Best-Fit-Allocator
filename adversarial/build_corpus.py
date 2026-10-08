@@ -17,7 +17,8 @@ import json
 import os
 from typing import List, Optional
 
-from adversarial import constructions, corpus, search
+from adversarial import constructions, corpus, search, stats
+from adversarial.confirm import parse_pressure
 from adversarial.families import get
 from adversarial.measure import mode_and_capacity
 from adversarial.mechanisms import explain, matched_random
@@ -97,7 +98,7 @@ def build() -> List[dict]:
     confirm = {(c["family"], c["pressure"]): c for c in (_json("confirm_cells.json") or [])}
     worse = [c for c in confirm.values() if c["verdict"] == "ARBF worse"]
     for c in worse:
-        p = c["pressure"] if c["pressure"] == "unbounded" else float(c["pressure"])
+        p = parse_pressure(c["pressure"])
         entries.append(from_family(f"confirmed-{c['family']}-{c['pressure']}".replace("/", "_"), c["family"],
                                    c["worst_seed"], p, 50_000,
                                    "theoretical weakness, confirmed on 48 fresh seeds (single-residual myopia on "
@@ -117,7 +118,7 @@ def build() -> List[dict]:
             continue                                   # already preserved as a confirmed weakness
         label = ("chaotic outlier: family not systematically worse (Stage 1 verdict "
                  f"'{c['verdict']}'" + (f", follow-up verdict '{fu['verdict']}'" if fu else "") + ")")
-        p = c["pressure"] if c["pressure"] == "unbounded" else float(c["pressure"])
+        p = parse_pressure(c["pressure"])
         entries.append(from_family(f"outlier-{c['family']}-{c['pressure']}".replace("/", "_"), c["family"],
                                    c["worst_seed"], p, 50_000, label,
                                    {"cell": _brief(c), "follow_up": _brief(fu) if fu else None}))
@@ -147,7 +148,7 @@ def build() -> List[dict]:
 
     cold = [c for c in (_json("coldstart_cells.json") or []) if c["pressure"] != "unbounded"
             and c["q"] < 0.05 and c["arbf_worse"] > c["arbf_better"]]
-    raw = [json.loads(line) for line in open(os.path.join(RESULTS, "coldstart.jsonl"), encoding="utf-8")]
+    raw = stats.load(os.path.join(RESULTS, "coldstart.jsonl")) if cold else []
     for c in cold:
         runs = [r for r in raw if (r["family"], r["n_events"], str(r["pressure"])) ==
                 (c["family"], c["n_events"], c["pressure"])]

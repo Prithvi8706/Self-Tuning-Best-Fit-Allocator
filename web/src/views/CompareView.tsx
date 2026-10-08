@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { api, waitForJob, type AlgName, type CompareResult, type Meta, type MetricKey } from "../api";
 import { Legend, LineChart } from "../components/LineChart";
 import { WorkloadForm, toSpec, type WorkloadDraft } from "../components/WorkloadForm";
-import { ALG_COLOR, ALG_LABEL, ALG_ORDER, compact, int, num, pct, plural, pp, units } from "../format";
+import { ALG_COLOR, ALG_LABEL, ALG_ORDER, METRIC_FMT, compact, int, num, pct, plural, pp, units } from "../format";
 
 interface Props {
   meta: Meta;
@@ -101,14 +101,14 @@ function bestOf(result: CompareResult, key: MetricKey): Set<AlgName> {
 function CompareBody({ result }: { result: CompareResult }) {
   const w = result.workload;
   const rs = result.results;
-  const columns: { key: MetricKey; label: string; fmt: (v: number | null) => string; title: string }[] = [
-    { key: "failed_allocations", label: "Failed", fmt: int, title: "ALLOC requests that found no fitting block" },
-    { key: "success_rate", label: "Success", fmt: (v) => pct(v, 2), title: "Successful ÷ requested allocations" },
-    { key: "ef_mean", label: "Avg ext. frag.", fmt: (v) => pct(v), title: "Time-average of 1 − largest free ÷ total free" },
-    { key: "utilization_mean", label: "Avg utilization", fmt: (v) => pct(v), title: "Time-average of live memory ÷ arena" },
-    { key: "largest_free_mean", label: "Avg largest free", fmt: units, title: "Time-average size of the largest free block" },
-    { key: "free_blocks_mean", label: "Avg free blocks", fmt: (v) => num(v, 1), title: "Time-average number of free fragments" },
-    { key: "blocks_inspected_mean", label: "Search cost", fmt: (v) => num(v), title: "Free blocks inspected per allocation" },
+  const columns: { key: MetricKey; label: string; title: string }[] = [
+    { key: "failed_allocations", label: "Failed", title: "ALLOC requests that found no fitting block" },
+    { key: "success_rate", label: "Success", title: "Successful ÷ requested allocations" },
+    { key: "ef_mean", label: "Avg ext. frag.", title: "Time-average of 1 − largest free ÷ total free" },
+    { key: "utilization_mean", label: "Avg utilization", title: "Time-average of live memory ÷ arena" },
+    { key: "largest_free_mean", label: "Avg largest free", title: "Time-average size of the largest free block" },
+    { key: "free_blocks_mean", label: "Avg free blocks", title: "Time-average number of free fragments" },
+    { key: "blocks_inspected_mean", label: "Search cost", title: "Free blocks inspected per allocation" },
   ];
   const best = Object.fromEntries(columns.map((c) => [c.key, bestOf(result, c.key)])) as Record<MetricKey, Set<AlgName>>;
   const legend = rs.map((r) => ({ key: r.algorithm, label: ALG_LABEL[r.algorithm], color: ALG_COLOR[r.algorithm] }));
@@ -156,7 +156,7 @@ function CompareBody({ result }: { result: CompareResult }) {
                   <td><span className="legend-item"><span className="swatch" style={{ background: ALG_COLOR[r.algorithm] }} />
                     {ALG_LABEL[r.algorithm]}</span></td>
                   {columns.map((c) => (
-                    <td key={c.key} className={`r${best[c.key].has(r.algorithm) ? " best" : ""}`}>{c.fmt(r.metrics[c.key])}</td>
+                    <td key={c.key} className={`r${best[c.key].has(r.algorithm) ? " best" : ""}`}>{METRIC_FMT[c.key].value(r.metrics[c.key])}</td>
                   ))}
                   <td className="r">{r.record.arbf ? `${int(r.record.arbf.deviations)} (${pct(r.record.arbf.divergence_rate, 2)})` : "—"}</td>
                 </tr>
@@ -264,8 +264,10 @@ function findings(result: CompareResult): React.ReactNode[] {
     }
     const ia = a.metrics.blocks_inspected_mean, ib = b.metrics.blocks_inspected_mean;
     if (ia != null && ib != null && ib > 0) {
-      out.push(<>ARBF inspected <b>{(ia / ib).toFixed(2)}×</b> as many free blocks per allocation as Best Fit
-        ({num(ia)} vs {num(ib)}) — its extra search cost.</>);
+      out.push(ia === ib
+        ? <>ARBF inspected the same number of free blocks per allocation as Best Fit ({num(ia)}).</>
+        : <>ARBF inspected <b>{(ia / ib).toFixed(2)}×</b> as many free blocks per allocation as Best Fit
+          ({num(ia)} vs {num(ib)}){ia > ib ? " — its extra search cost" : ""}.</>);
     }
     const dev = a.record.arbf;
     if (dev) {

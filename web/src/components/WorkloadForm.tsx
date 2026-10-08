@@ -44,7 +44,7 @@ const ROLE: Record<string, string> = {
   P: "predicted ARBF effect", boundary: "boundary case", N: "predicted ≈ Best Fit", X: "exploratory / risk",
 };
 
-function NumberInput({ value, onChange, min, max, id }: {
+export function NumberInput({ value, onChange, min, max, id }: {
   value: number; onChange: (v: number) => void; min: number; max?: number; id?: string;
 }) {
   return (
@@ -147,7 +147,6 @@ export function WorkloadForm({ meta, draft, onChange, traceActions }: Props) {
           )}
         </>
       )}
-      {meta.corpus_error && draft.kind === "corpus" && <div className="error-box">{meta.corpus_error}</div>}
     </>
   );
 }

@@ -17,7 +17,7 @@ from framework.experiment import ALGORITHMS_BY_NAME, ExperimentConfig, run_exper
 from framework.replay import replay
 from framework.workloads import get_family
 from simulator.session import Stepper, algorithm_class
-from simulator.workload import MAX_EVENTS, Workload, WorkloadError
+from simulator.workload import MAX_EVENTS, MAX_MEMORY, Workload, WorkloadError, int_field, margin_field
 
 MAX_POINTS = 400                    # points per over-time series
 MAX_EXPERIMENT_EVENTS = 1_000_000   # seeds × events per seed, keeps a run under ~a minute
@@ -35,10 +35,11 @@ METRICS: Dict[str, tuple] = {
     "free_blocks_mean": ("Free fragments (time-avg count)", lambda r: r["free_blocks_mean"], True),
     "largest_free_mean": ("Largest free block (time-avg, units)", lambda r: r["largest_free_mean"], False),
 }
+METRIC_INFO = {k: {"label": label, "lower_is_better": lower} for k, (label, _, lower) in METRICS.items()}
 
 
 def _algorithms(names: Optional[Sequence[str]]) -> List[str]:
-    names = list(names) if names else list(ALGORITHMS_BY_NAME)
+    names = list(ALGORITHMS_BY_NAME) if names is None else list(names)
     for n in names:
         algorithm_class(n)
     if not names:
@@ -53,9 +54,9 @@ def _scalar_metrics(record: dict) -> dict:
 # --------------------------------------------------------------- comparison
 
 def _series(workload: Workload, algorithm: str, bucket: int) -> dict:
-    """Per-bucket means of the per-event metrics (failures: cumulative at bucket end)."""
+    """Per-bucket means of the per-event metrics."""
     stepper = Stepper(workload, algorithm)
-    out = {k: [] for k in ("x", "ef", "util", "largest", "failed")}
+    out = {k: [] for k in ("x", "ef", "util", "largest")}
     acc = {"ef": [], "util": [], "largest": []}
     n = len(workload.events)
     for i in range(n):
@@ -69,7 +70,6 @@ def _series(workload: Workload, algorithm: str, bucket: int) -> dict:
             for k, vals in acc.items():
                 out[k].append(sum(vals) / len(vals) if vals else None)
                 vals.clear()
-            out["failed"].append(m["allocs"] - m["ok"])
     return out
 
 
@@ -85,17 +85,19 @@ def compare(workload: Workload, algorithms: Optional[Sequence[str]],
                         "series": _series(workload, name, bucket)})
         progress(k + 1, len(names))
     return {"workload": workload.info(), "bucket": bucket, "results": results,
-            "metric_info": {k: {"label": v[0], "lower_is_better": v[2]} for k, v in METRICS.items()}}
+            "metric_info": METRIC_INFO}
 
 
 # -------------------------------------------------------------- experiments
 
-def _t_critical(df: int) -> float:
+def _t_critical(df: int) -> Optional[float]:
+    """Two-sided 95% t quantile; None without scipy, so no interval is shown rather than a
+    normal-approximation interval mislabelled as a t interval (far too narrow for few seeds)."""
     try:
         from scipy.stats import t
-        return float(t.ppf(0.975, df))
-    except ImportError:                     # normal approximation without scipy
-        return 1.959964
+    except ImportError:
+        return None
+    return float(t.ppf(0.975, df))
 
 
 def _wilcoxon_p(diffs: Sequence[float]) -> Optional[float]:
@@ -110,7 +112,8 @@ def describe(values: Sequence[float]) -> dict:
     n = len(values)
     mean = statistics.fmean(values)
     sd = statistics.stdev(values) if n > 1 else None
-    half = _t_critical(n - 1) * sd / math.sqrt(n) if n > 1 else None
+    t = _t_critical(n - 1) if n > 1 else None
+    half = None if t is None else t * sd / math.sqrt(n)
     return {"n": n, "mean": mean, "median": statistics.median(values), "sd": sd,
             "ci_low": None if half is None else mean - half, "ci_high": None if half is None else mean + half,
             "min": min(values), "max": max(values)}
@@ -119,16 +122,15 @@ def describe(values: Sequence[float]) -> dict:
 def experiment(spec: dict, progress: Callable[[int, int], None] = lambda done, total: None) -> dict:
     family = get_family(str(spec.get("family")))
     names = _algorithms(spec.get("algorithms"))
-    first_seed, seed_count, n_events = (spec.get(k) for k in ("first_seed", "seed_count", "n_events"))
-    for key, value, lo, hi in (("first_seed", first_seed, 0, 2**31 - 1), ("seed_count", seed_count, 2, 100),
-                               ("n_events", n_events, 100, MAX_EVENTS)):
-        if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
-            raise WorkloadError(f"{key} must be an integer in [{lo:,}, {hi:,}], got {value!r}")
+    first_seed = int_field(spec, "first_seed", 0, 2**31 - 1)
+    seed_count = int_field(spec, "seed_count", 2, 100)
+    n_events = int_field(spec, "n_events", 100, MAX_EVENTS)
     if seed_count * n_events > MAX_EXPERIMENT_EVENTS:
         raise WorkloadError(f"seeds × events must be at most {MAX_EXPERIMENT_EVENTS:,}")
-    memory, margin = spec.get("memory"), spec.get("margin")
-    if (memory is None) == (margin is None):
-        raise WorkloadError("give exactly one of memory (units) or margin")
+    if "memory" in spec:
+        memory, margin = int_field(spec, "memory", 1, MAX_MEMORY), None
+    else:
+        memory, margin = None, margin_field(spec)
 
     seeds = list(range(first_seed, first_seed + seed_count))
     per_seed: List[dict] = []
@@ -156,7 +158,7 @@ def experiment(spec: dict, progress: Callable[[int, int], None] = lambda done, t
                        "algorithms": names},
             "per_seed": [{k: s[k] for k in ("seed", "memory_size", "trace_sha256")} for s in per_seed],
             "stats": stats, "reference": REFERENCE if REFERENCE in names else None,
-            "metric_info": {k: {"label": v[0], "lower_is_better": v[2]} for k, v in METRICS.items()}}
+            "metric_info": METRIC_INFO}
 
 
 def _paired(per_seed: List[dict], name: str, metric: str, lower_better: bool) -> Optional[dict]:

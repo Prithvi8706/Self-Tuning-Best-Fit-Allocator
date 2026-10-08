@@ -151,3 +151,52 @@ def test_http_api_round_trip():
         assert call("/api/trace/validate", {"text": "FREE nope"})["ok"] is False
     finally:
         httpd.shutdown()
+
+
+# ------------------------------------------------------- regression tests (health scan)
+
+def test_next_fit_candidates_are_ranked_from_the_rover_before_the_decision():
+    trace = "ALLOC A 10\nALLOC B 10\nALLOC C 10\nALLOC E 10\nFREE A\nFREE C\nALLOC D 10"
+    for spec in ({"kind": "trace", "text": trace, "memory": 40}, WORKLOADS[1]):
+        for f in _all_frames(Session(build_workload(spec), "next_fit")):
+            if f["status"] == "ok":
+                assert f["decision"]["candidates"][0]["chosen"], f"frame {f['index']}"
+
+
+def test_shortcut_explanation_only_claims_what_p5_guarantees():
+    trace = "ALLOC X1 15\nALLOC G1 1\nALLOC X2 20\nALLOC G2 1\nALLOC H 10\nFREE X1\nFREE X2\nALLOC R 10"
+    a = Session(build_workload({"kind": "trace", "text": trace, "memory": 47}), "arbf").frames(7, 1)[0]["decision"]["arbf"]
+    assert a["path"] == "shortcut" and a["rbf"] == 5
+    assert any(r["fits"] > a["rows"][0]["fits"] for r in a["rows"])    # a larger leftover does fit more...
+    assert "or more can never score lower" in a["reason"]              # ...and the text says why it still loses
+
+
+def test_explicit_empty_selection_and_null_fields_are_rejected():
+    with pytest.raises(WorkloadError, match="at least one"):
+        analysis.compare(build_workload(WORKLOADS[-1]), [])
+    base = {"family": "F5", "first_seed": 1, "seed_count": 2, "n_events": 200}
+    with pytest.raises(WorkloadError, match="memory must be an integer"):
+        analysis.experiment({**base, "memory": None})
+    with pytest.raises(WorkloadError, match="margin"):
+        analysis.experiment({**base, "margin": "x"})
+    with pytest.raises(WorkloadError, match="memory must be an integer"):
+        build_workload({"kind": "family", "family": "F5", "seed": 1, "n_events": 10, "memory": None})
+
+
+def test_sim_payload_ships_only_what_the_ui_draws():
+    payload = Session(build_workload(WORKLOADS[-1]), "arbf").payload()
+    assert set(payload["timeline"]) == {"initial", "max_blocks", "status", "ef"}
+
+
+def test_negative_content_length_is_rejected_not_blocking():
+    import http.client
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=5)
+        conn.putrequest("POST", "/api/trace/validate")
+        conn.putheader("Content-Length", "-1")
+        conn.endheaders()
+        assert conn.getresponse().status == 400
+    finally:
+        httpd.shutdown()

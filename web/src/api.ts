@@ -4,7 +4,7 @@
 
 export type AlgName = "first_fit" | "best_fit" | "worst_fit" | "next_fit" | "arbf";
 
-export interface AlgorithmInfo { name: AlgName; label: string; rule: string }
+export interface AlgorithmInfo { name: AlgName; rule: string }
 export interface FamilyInfo { name: string; role: string; description: string }
 export interface CorpusInfo {
   name: string;
@@ -18,7 +18,6 @@ export interface Meta {
   algorithms: AlgorithmInfo[];
   families: FamilyInfo[];
   corpus: CorpusInfo[];
-  corpus_error?: string;
   margins: number[];
   arbf_window: number;
   unit_bytes: number;
@@ -60,18 +59,12 @@ export interface Metrics {
   ok: number;
 }
 
+/** The per-event columns the UI draws (the full timeline stays server-side). */
 export interface Timeline {
   initial: Metrics;
   max_blocks: number;
   status: Status[];
-  inspected: (number | null)[];
   ef: (number | null)[];
-  util: number[];
-  largest: number[];
-  free_blocks: number[];
-  allocated_blocks: number[];
-  ok: number[];
-  allocs: number[];
 }
 
 /** One record of framework.replay.replay — the benchmark's own measurement. */
@@ -157,7 +150,7 @@ export interface Frame {
   decision?: Decision;
 }
 
-export interface Series { x: number[]; ef: (number | null)[]; util: number[]; largest: number[]; failed: number[] }
+export interface Series { x: number[]; ef: (number | null)[]; util: number[]; largest: number[] }
 export interface MetricInfo { label: string; lower_is_better: boolean }
 export type MetricKey =
   | "ef_mean" | "success_rate" | "failed_allocations" | "utilization_mean"

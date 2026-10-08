@@ -7,3 +7,6 @@ __pycache__/
 # results/tables.md and the preserved-failure corpus are committed.
 adversarial/results/*.jsonl
 .gstack/
+
+# output of the README benchmark example
+/results.jsonl

@@ -20,14 +20,15 @@ def select(cells):
             and (c["arbf"]["p"] < 0.10 or abs(c["arbf"]["wins"] - c["arbf"]["losses"]) >= 6)]
 
 
-def _pressure(p: str):
+def parse_pressure(p: str):
+    """A pressure as stored in the cell summaries: "unbounded" or a margin string."""
     return p if p == "unbounded" else float(p)
 
 
 def run(cells, path: str, n_events: int = 50_000, processes: int = 20) -> None:
     per_family = defaultdict(list)
     for c in select(cells):
-        per_family[c["family"]].append(_pressure(c["pressure"]))
+        per_family[c["family"]].append(parse_pressure(c["pressure"]))
     jobs = [(fam, seed, n_events, tuple(ps)) for fam, ps in per_family.items() for seed in SEEDS]
     with Pool(processes) as pool, open(path, "w", encoding="utf-8", newline="\n") as f:
         for records in pool.imap_unordered(_job, jobs, chunksize=1):

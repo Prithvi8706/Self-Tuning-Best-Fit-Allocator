@@ -27,14 +27,17 @@ export function SimulationView({ meta, draft, setDraft, present, active }: Props
   const loadedSpec = useRef<string>("");
   const pb = usePlayback(session, startIndex);
   const autoplay = useRef(false);
+  const loadSeq = useRef(0);
 
   async function load(alg = algorithm, play = false) {
+    const my = ++loadSeq.current;
     const spec = toSpec(draft);
     const key = JSON.stringify(spec);
     setLoading(true);
     setError(null);
     try {
       const s = await api.createSim(spec, alg);
+      if (my !== loadSeq.current) return;          // superseded by a newer load
       // same workload, different policy: stay on the same operation so decisions can be compared
       setStartIndex(key === loadedSpec.current && session ? pb.index : -1);
       if (key !== loadedSpec.current) setSelected(null);
@@ -42,9 +45,9 @@ export function SimulationView({ meta, draft, setDraft, present, active }: Props
       autoplay.current = play;
       setSession(s);
     } catch (e) {
-      setError((e as Error).message);
+      if (my === loadSeq.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (my === loadSeq.current) setLoading(false);
     }
   }
 
@@ -53,7 +56,7 @@ export function SimulationView({ meta, draft, setDraft, present, active }: Props
     if (session && autoplay.current && pb.frame) { autoplay.current = false; pb.play(); }
   }, [session, pb.frame]);
 
-  // keyboard: space = run/pause, → = step, Home = reset, End = run all
+  // keyboard: space = run/pause, → = step, ← = step back, Home = reset, End = run all
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
@@ -199,7 +202,7 @@ function SimulationBody({ session, pb, meta, present, selected, setSelected, exp
       <div className="grid-2">
         <DecisionPanel session={session} frame={frame} efBefore={efBefore} explain={explain}
                        onExplain={setExplain} arbfWindow={meta.arbf_window} />
-        <div className="side-stack" style={{ display: "grid", gap: "0.9rem" }}>
+        <div className="side-stack">
           <BlockDetail frame={frame} selected={selected} labelOf={labelOf} allocIndex={allocIndex}
                        onClear={() => setSelected(null)} />
           <OpLog session={session} index={pb.index} onSeek={pb.seek} />
@@ -325,10 +328,9 @@ function BlockDetail({ frame, selected, labelOf, allocIndex, onClear }: {
             {b.id >= 0 && <><dt>Allocation ID</dt><dd className="mono">{labelOf(b.id)}</dd></>}
             <dt>Start</dt><dd className="mono">{int(b.addr)}</dd>
             <dt>End</dt><dd className="mono">{int(b.addr + b.size)} <span className="muted">(exclusive)</span></dd>
-            <dt>Size</dt><dd>{units(b.size)}</dd>
+            <dt>Size</dt><dd>{units(b.size)}{b.id >= 0 && <span className="muted"> — exactly the request; any
+              leftover was split off as a free block</span>}</dd>
             {b.id >= 0 && <>
-              <dt>Requested</dt><dd>{units(b.size)} <span className="muted">— the engine places exactly the request;
-                any leftover is split off as a free block</span></dd>
               <dt>Allocated at</dt><dd>operation {int((allocIndex.get(b.id) ?? -1) + 1)}</dd>
             </>}
             {b.id < 0 && frame && <><dt>Share of free memory</dt>
@@ -358,6 +360,7 @@ function OpLog({ session, index, onSeek }: { session: SimSession; index: number;
                 <td className="r">{e[0] === "A" ? units(e[3]) : ""}</td>
                 <td className="st">{i > index ? "" : st[i] === "ok" ? <span className="secondary">ok</span>
                   : st[i].startsWith("fail") ? <span className="status fail" style={{ fontWeight: 600 }}>✕ failed</span>
+                  : st[i] === "free-noop" ? <span className="muted">no-op</span>
                   : <span className="muted">freed</span>}</td>
               </tr>
             ))}

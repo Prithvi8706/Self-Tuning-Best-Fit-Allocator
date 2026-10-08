@@ -111,25 +111,27 @@ class Session:
         self._stepper = Stepper(workload, algorithm)
 
     def _timeline(self) -> dict:
-        """Per-event status and metrics for the whole run, column-oriented."""
+        """Per-event status and metrics for the whole run, column-oriented. ef and status drive
+        the UI; inspected, util, ok and allocs let tests cross-check against framework.replay."""
         stepper = Stepper(self.workload, self.algorithm)
         initial = stepper.metrics()
-        cols: Dict[str, list] = {k: [] for k in ("status", "inspected", "ef", "util", "largest", "free_blocks",
-                                                 "allocated_blocks", "ok", "allocs")}
+        cols: Dict[str, list] = {k: [] for k in ("status", "inspected", "ef", "util", "ok", "allocs")}
         max_blocks = initial["free_blocks"]
         for _ in range(len(self.workload.events)):
             rec = stepper.step()
             m = rec["metrics"]
             cols["status"].append(rec["status"])
             cols["inspected"].append(rec.get("inspected"))
-            for k in ("ef", "util", "largest", "free_blocks", "allocated_blocks", "ok", "allocs"):
+            for k in ("ef", "util", "ok", "allocs"):
                 cols[k].append(m[k])
             max_blocks = max(max_blocks, m["free_blocks"] + m["allocated_blocks"])
         return {"initial": initial, "max_blocks": max_blocks, **cols}
 
     def payload(self) -> dict:
+        tl = self.timeline
+        ui_timeline = {k: tl[k] for k in ("initial", "max_blocks", "status", "ef")}
         return {"algorithm": self.algorithm, "workload": self.workload.info(),
-                "events": self.workload.event_list(), "timeline": self.timeline, "summary": self.summary}
+                "events": self.workload.event_list(), "timeline": ui_timeline, "summary": self.summary}
 
     def frames(self, start: int, count: int) -> List[dict]:
         """Frames for events start .. start+count-1 (index -1 is the initial heap)."""

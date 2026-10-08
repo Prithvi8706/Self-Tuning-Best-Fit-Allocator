@@ -9,7 +9,7 @@ import re
 from fractions import Fraction
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
-from engine.trace import Op, Trace, TraceError, alloc, free, make_trace
+from engine.trace import Op, Trace, alloc, free, make_trace
 from framework.generator import generate_trace, trace_peak_live, trace_sha256
 from framework.workloads import FAMILIES, get_family
 
@@ -109,21 +109,28 @@ def parse_trace_text(text: str) -> Tuple[Optional[Trace], Dict[int, str], List[T
 
 # ------------------------------------------------------------------ builders
 
-def _int_field(spec: dict, key: str, lo: int, hi: int, default: Optional[int] = None) -> int:
-    value = spec.get(key, default)
+def int_field(spec: dict, key: str, lo: int, hi: int) -> int:
+    """spec[key] as an integer in [lo, hi] (bool rejected), else WorkloadError."""
+    value = spec.get(key)
     if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
         raise WorkloadError(f"{key} must be an integer in [{lo:,}, {hi:,}], got {value!r}")
     return value
 
 
-def _capacity(spec: dict, peak_live: int) -> Tuple[int, dict]:
-    """FIXED arena: explicit `memory`, or `margin` as in framework.experiment.resolve_memory."""
-    if spec.get("memory") is not None:
-        memory = _int_field(spec, "memory", 1, MAX_MEMORY)
-        return memory, {"memory": memory}
+def margin_field(spec: dict) -> float:
+    """spec["margin"] as a number in [0, 10], else WorkloadError."""
     margin = spec.get("margin")
     if isinstance(margin, bool) or not isinstance(margin, (int, float)) or not 0 <= margin <= 10:
         raise WorkloadError(f"give either memory (units) or margin in [0, 10], got margin={margin!r}")
+    return margin
+
+
+def _capacity(spec: dict, peak_live: int) -> Tuple[int, dict]:
+    """FIXED arena: explicit `memory`, or `margin` as in framework.experiment.resolve_memory."""
+    if "memory" in spec:
+        memory = int_field(spec, "memory", 1, MAX_MEMORY)
+        return memory, {"memory": memory}
+    margin = margin_field(spec)
     return max(1, math.ceil((1 + Fraction(str(margin))) * peak_live)), {"margin": margin}
 
 
@@ -131,8 +138,8 @@ def build_workload(spec: dict) -> Workload:
     kind = spec.get("kind")
     if kind == "family":
         family = get_family(str(spec.get("family")))
-        seed = _int_field(spec, "seed", 0, 2**31 - 1)
-        n_events = _int_field(spec, "n_events", 1, MAX_EVENTS)
+        seed = int_field(spec, "seed", 0, 2**31 - 1)
+        n_events = int_field(spec, "n_events", 1, MAX_EVENTS)
         gt = generate_trace(family, seed, n_events)
         capacity, memory_params = _capacity(spec, gt.peak_live)
         labels = {e.alloc_id: f"A{e.alloc_id}" for e in gt.events if e.op is Op.ALLOC}
@@ -144,7 +151,7 @@ def build_workload(spec: dict) -> Workload:
         if issues:
             raise WorkloadError("; ".join(f"line {i.line}: {i.message}" if i.line else i.message
                                           for i in issues[:5]))
-        memory = _int_field(spec, "memory", 1, MAX_MEMORY)
+        memory = int_field(spec, "memory", 1, MAX_MEMORY)
         return Workload("trace", "Custom trace", "hand-written ALLOC/FREE trace", trace, labels, memory,
                         trace_sha256(trace), trace_peak_live(trace), {"memory": memory})
     if kind == "corpus":
@@ -184,6 +191,3 @@ def catalogue() -> dict:
         "max_events": MAX_EVENTS,
     }
 
-
-__all__ = ["MAX_EVENTS", "TraceError", "TraceIssue", "Workload", "WorkloadError", "build_workload",
-           "catalogue", "parse_trace_text"]

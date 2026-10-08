@@ -202,6 +202,7 @@ input:disabled, select:disabled { opacity: 0.6; }
 .panel-h h2, .panel-h h3 { margin: 0; font-size: 0.93rem; font-weight: 650; }
 .panel-h .aside { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; color: var(--text-3); font-size: 0.86rem; }
 .panel-b { padding: 0.75rem 0.85rem; }
+.side-stack { display: grid; gap: 0.9rem; }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0.9rem; align-items: start; }
 .grid-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
 @media (max-width: 1150px) {

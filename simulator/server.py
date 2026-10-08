@@ -22,18 +22,16 @@ from typing import Callable, Dict
 from urllib.parse import parse_qs, urlparse
 
 from engine.algorithms.arbf import W
-from engine.trace import Op, TraceError
+from engine.trace import Op
 from framework.experiment import ALGORITHMS_BY_NAME, FIXED_MARGINS
 from framework.generator import trace_peak_live
 from simulator import analysis
 from simulator.explain import RULES
 from simulator.session import Session, SessionStore
-from simulator.workload import WorkloadError, build_workload, catalogue, parse_trace_text
+from simulator.workload import build_workload, catalogue, parse_trace_text
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(ROOT, "web", "dist")
-LABELS = {"first_fit": "First Fit", "best_fit": "Best Fit", "worst_fit": "Worst Fit", "next_fit": "Next Fit",
-          "arbf": "ARBF"}
 MAX_BODY = 4 * 1024 * 1024
 MAX_JOBS = 32
 
@@ -61,7 +59,7 @@ class Jobs:
             try:
                 job["result"] = fn(progress)
                 job["state"] = "done"
-            except (ValueError, TraceError) as exc:
+            except ValueError as exc:          # includes TraceError and WorkloadError
                 job["error"], job["state"] = str(exc), "error"
             except Exception as exc:  # surfaced to the UI rather than lost in a thread
                 traceback.print_exc()
@@ -82,15 +80,9 @@ JOBS = Jobs()
 
 
 def meta() -> dict:
-    try:
-        cat = catalogue()
-    except ImportError as exc:               # the corpus loader needs the study's dependencies (scipy)
-        from framework.workloads import FAMILIES
-        cat = {"families": [{"name": f.name, "role": f.role, "description": f.description}
-                            for f in FAMILIES.values()], "corpus": [], "corpus_error": str(exc)}
-    return {"algorithms": [{"name": n, "label": LABELS[n], "rule": RULES[n]} for n in ALGORITHMS_BY_NAME],
+    return {"algorithms": [{"name": n, "rule": RULES[n]} for n in ALGORITHMS_BY_NAME],
             "margins": list(FIXED_MARGINS), "arbf_window": W, "unit_bytes": 16,
-            "experiment_event_budget": analysis.MAX_EXPERIMENT_EVENTS, **cat}
+            "experiment_event_budget": analysis.MAX_EXPERIMENT_EVENTS, **catalogue()}
 
 
 def validate_trace(body: dict) -> dict:
@@ -127,8 +119,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _body(self) -> dict:
         length = int(self.headers.get("Content-Length") or 0)
-        if length > MAX_BODY:
-            raise ValueError("request body too large")
+        if not 0 <= length <= MAX_BODY:
+            raise ValueError("invalid or too large request body")
         data = json.loads(self.rfile.read(length) or b"{}")
         if not isinstance(data, dict):
             raise ValueError("request body must be a JSON object")
@@ -139,7 +131,7 @@ class Handler(BaseHTTPRequestHandler):
             handler()
         except KeyError as exc:
             self._error(HTTPStatus.NOT_FOUND, str(exc.args[0]) if exc.args else "not found")
-        except (ValueError, TraceError, WorkloadError) as exc:
+        except ValueError as exc:              # includes TraceError and WorkloadError
             self._error(HTTPStatus.BAD_REQUEST, str(exc))
         except Exception as exc:
             traceback.print_exc()

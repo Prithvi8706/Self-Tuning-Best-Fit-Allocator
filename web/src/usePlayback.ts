@@ -72,6 +72,12 @@ export function usePlayback(session: SimSession | null, startIndex: number) {
   useEffect(() => {
     if (!playing || !session) return;
     const id = window.setInterval(() => {
+      if (target.current !== indexRef.current) {          // a requested frame is not shown yet
+        const pending = cache.current.get(target.current);
+        if (pending) show(pending);
+        else void fetchFrom(target.current, CHUNK);
+        return;
+      }
       const next = indexRef.current + 1;
       if (next >= n) { setPlaying(false); return; }
       target.current = next;
@@ -92,7 +98,7 @@ export function usePlayback(session: SimSession | null, startIndex: number) {
     setSpeed,
     play: () => { if (index >= n - 1) seek(-1); setPlaying(true); },
     pause: () => setPlaying(false),
-    step: () => { setPlaying(false); seek(index + 1); },
+    step: () => { setPlaying(false); seek(target.current + 1); },   // from the requested frame
     reset: () => { setPlaying(false); seek(-1); },
     runAll: () => { setPlaying(false); seek(n - 1); },
     seek: (i: number) => { setPlaying(false); seek(i); },

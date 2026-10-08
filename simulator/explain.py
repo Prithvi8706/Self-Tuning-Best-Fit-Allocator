@@ -27,17 +27,17 @@ def _row(b: Block, size: int) -> dict:
     return {"addr": b.addr, "size": b.size, "residual": b.size - size}
 
 
-def candidate_order(allocator, fitting: List[Block]) -> List[Block]:
-    """Fitting blocks in the order the policy's rule ranks them (display only)."""
+def candidate_order(allocator, fitting: List[Block], rover: Optional[int] = None) -> List[Block]:
+    """Fitting blocks in the order the policy's rule ranks them (display only).
+    Next Fit needs the rover as it was before the decision (ALLOC moves it)."""
     name = allocator.name
     if name == "first_fit":
         return sorted(fitting, key=lambda b: b.addr)
-    if name in ("best_fit", "arbf"):
+    if name == "best_fit":
         return sorted(fitting, key=lambda b: (b.size, b.addr))
     if name == "worst_fit":
         return sorted(fitting, key=lambda b: (-b.size, b.addr))
     if isinstance(allocator, NextFit):
-        rover = allocator.rover
         ordered = sorted(fitting, key=lambda b: b.addr)
         return [b for b in ordered if b.end > rover] + [b for b in ordered if b.end <= rover]
     return fitting
@@ -62,7 +62,7 @@ class PreDecision:
         if self.arbf is not None:
             out["arbf"] = _arbf_decision(self.arbf, self.allocator.last_decision, chosen, self.size)
             return out
-        ordered = candidate_order(self.allocator, self.fitting)
+        ordered = candidate_order(self.allocator, self.fitting, self.rover)
         rows = [_row(b, self.size) for b in ordered[:MAX_ROWS]]
         if chosen is not None and all(r["addr"] != chosen.addr for r in rows):
             rows.append(_row(chosen, self.size))
@@ -87,11 +87,7 @@ def _arbf_scores(allocator: ARBF, fitting: List[Block], size: int) -> dict:
         c = allocator._count_le(r)        # c(r): remembered requests that fit in r (read-only)
         rows.append({"addr": b.addr, "size": b.size, "residual": r, "fits": c,
                      "g": c / (n + 1), "weight": 2 - c / (n + 1), "cost": allocator.cost(r)})
-    rbf = rows[0]["residual"] if rows else None
-    shortcut = None
-    if rbf:                               # P5 inputs: c(r_BF) and c(2·r_BF − 1)
-        shortcut = {"c_rbf": allocator._count_le(rbf), "c_window": allocator._count_le(2 * rbf - 1)}
-    return {"n": n, "rows": rows, "rbf": rbf, "shortcut": shortcut}
+    return {"n": n, "rows": rows, "rbf": rows[0]["residual"] if rows else None}
 
 
 def _arbf_decision(scores: dict, decision, chosen: Optional[Block], size: int) -> dict:
@@ -143,9 +139,10 @@ def _reason(path: str, scores: dict, rows: List[dict], chosen: Optional[Block], 
         return ("The tightest block leaves a 1-unit leftover. ARBF only considers leftovers below twice that, "
                 "so no other block can compete; it takes the Best Fit block.")
     if path == "shortcut":
-        return (f"{history}. None of them is between {b0['residual'] + 1:,} and {2 * b0['residual'] - 1:,} units, "
-                f"so no larger block could leave a leftover that fits more of them than the tightest block's "
-                f"leftover of {b0['residual']:,}. ARBF takes the Best Fit block without scanning further.")
+        r = b0["residual"]
+        return (f"{history}. None of them is between {r + 1:,} and {2 * r - 1:,} units, so no block whose leftover "
+                f"is below {2 * r:,} can fit more of them than the tightest block's leftover of {r:,}, and a leftover "
+                f"of {2 * r:,} or more can never score lower. ARBF takes the Best Fit block without scanning further.")
     chosen_row = next(r for r in rows if chosen is not None and r["addr"] == chosen.addr)
     scanned = sum(1 for r in rows if r["evaluated"]) - 1
     if chosen_row is b0 and scanned == 0:

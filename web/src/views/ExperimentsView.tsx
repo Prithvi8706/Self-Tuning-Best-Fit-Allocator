@@ -3,6 +3,7 @@ import { api, waitForJob, type AlgName, type ExperimentResult, type Meta, type M
 import { niceTicks } from "../components/LineChart";
 import { useWidth } from "../hooks";
 import { ALG_COLOR, ALG_LABEL, ALG_ORDER, METRIC_FMT, int, pValue, pct } from "../format";
+import { NumberInput } from "../components/WorkloadForm";
 import { AlgorithmChecks } from "./CompareView";
 
 const METRICS: MetricKey[] = ["ef_mean", "success_rate", "failed_allocations", "utilization_mean",
@@ -26,6 +27,7 @@ export function ExperimentsView({ meta, active }: { meta: Meta; active: boolean 
   const [error, setError] = useState<string | null>(null);
   const token = useRef({ cancelled: false });
   const budget = d.seedCount * d.nEvents;
+  const complete = [d.firstSeed, d.seedCount, d.nEvents, d.memoryMode === "memory" ? d.memory : 0].every(Number.isFinite);
   const family = meta.families.find((f) => f.name === d.family);
 
   async function run() {
@@ -48,11 +50,6 @@ export function ExperimentsView({ meta, active }: { meta: Meta; active: boolean 
     }
   }
 
-  const numInput = (v: number, on: (n: number) => void, id: string, min = 0) => (
-    <input id={id} type="number" min={min} value={Number.isFinite(v) ? v : ""}
-           onChange={(e) => on(e.target.value === "" ? NaN : Number(e.target.value))} />
-  );
-
   return (
     <div className="view" hidden={!active}>
       <aside className="sidebar">
@@ -66,12 +63,12 @@ export function ExperimentsView({ meta, active }: { meta: Meta; active: boolean 
             {family && <div className="hint">{family.description}</div>}
           </div>
           <div className="field-row">
-            <div className="field"><label htmlFor="ex-seed">First seed</label>{numInput(d.firstSeed, (v) => set({ firstSeed: v }), "ex-seed")}</div>
-            <div className="field"><label htmlFor="ex-count">Seeds</label>{numInput(d.seedCount, (v) => set({ seedCount: v }), "ex-count", 2)}</div>
+            <div className="field"><label htmlFor="ex-seed">First seed</label><NumberInput id="ex-seed" value={d.firstSeed} min={0} onChange={(v) => set({ firstSeed: v })} /></div>
+            <div className="field"><label htmlFor="ex-count">Seeds</label><NumberInput id="ex-count" value={d.seedCount} min={2} onChange={(v) => set({ seedCount: v })} /></div>
           </div>
           <div className="field">
-            <label htmlFor="ex-n">Operations per seed</label>{numInput(d.nEvents, (v) => set({ nEvents: v }), "ex-n", 100)}
-            <div className="hint">Seeds × operations: {int(budget)} of {int(meta.experiment_event_budget)} allowed.</div>
+            <label htmlFor="ex-n">Operations per seed</label><NumberInput id="ex-n" value={d.nEvents} min={100} onChange={(v) => set({ nEvents: v })} />
+            {complete && <div className="hint">Seeds × operations: {int(budget)} of {int(meta.experiment_event_budget)} allowed.</div>}
           </div>
           <div className="field">
             <span className="label">Memory size</span>
@@ -83,14 +80,14 @@ export function ExperimentsView({ meta, active }: { meta: Meta; active: boolean 
               <select aria-label="Margin" value={d.margin} onChange={(e) => set({ margin: Number(e.target.value) })}>
                 {meta.margins.map((m) => <option key={m} value={m}>+{pct(m, 0)} over peak live</option>)}
               </select>
-            ) : numInput(d.memory, (v) => set({ memory: v }), "ex-mem", 1)}
+            ) : <NumberInput id="ex-mem" value={d.memory} min={1} onChange={(v) => set({ memory: v })} />}
           </div>
         </div>
         <div className="side-section">
           <h2 className="side-title">Algorithms</h2>
           <AlgorithmChecks value={d.algorithms} onChange={(a) => set({ algorithms: a })} />
           <button className="btn btn-primary btn-block" onClick={run}
-                  disabled={running || d.algorithms.length === 0 || budget > meta.experiment_event_budget}>
+                  disabled={running || !complete || d.algorithms.length === 0 || budget > meta.experiment_event_budget}>
             {running ? "Running…" : "Run experiment"}
           </button>
           {running && (
@@ -293,7 +290,6 @@ function StripPlot({ r, metric, algs }: { r: ExperimentResult; metric: MetricKey
                     <title>{`mean ${fmt.value(s.mean)}`}</title>
                   </line>
                 )}
-                <rect x={left} y={cy - rowH / 2} width={pw} height={rowH} fill="transparent" pointerEvents="none" />
               </g>
             );
           })}
