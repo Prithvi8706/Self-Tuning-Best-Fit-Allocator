@@ -34,15 +34,15 @@ Neither policy dominates: the same construction mirrored makes **Best Fit** fail
 | `adversarial/REPORT.md` | **← read this one.** Full write-up: method, results, mechanisms, operating envelope, limitations. |
 | `docs/ARBF_System_Design_Report.md` (+ PDF) | System design report as submitted on 2026-09-23 (commit `79148c9`), before the simulator existed: its 543-test, ~5,033-line and 61 %-core figures describe that version. Its "250× worst case" for `scan-cost-blowup` is blocks inspected; the time cost is 23× (`adversarial/REPORT.md` §5). |
 | `simulator/` + `web/` | Interactive simulator UI (visualization only — it drives the frozen engine and the benchmark, never re-implements a policy). |
-| `tests/` | 592 tests: spec properties, differential tests vs brute force, every preserved failure, simulator ↔ benchmark agreement. |
+| `tests/` | 594 tests: spec properties, differential tests vs brute force, every preserved failure, simulator ↔ benchmark agreement. |
 
-~6,100 lines of Python plus a ~2,800-line React/TypeScript front end in `web/`; the Python needs nothing beyond
+~6,200 lines of Python plus a ~2,800-line React/TypeScript front end in `web/`; the Python needs nothing beyond
 `pytest` and `scipy` (statistics only).
 
 ### Run it
 
 ```bash
-python -m pytest -q                                   # 592 tests, ~2.5 min
+python -m pytest -q                                   # 594 tests, ~2.5 min
 python -m framework --workloads F5 F12 --seeds 1 2 --margin 0.25 \
        --n-events 20000 --out results.jsonl           # benchmark ARBF vs the baselines
 python -m adversarial constructions                   # the handcrafted traps, with their exact outcomes
@@ -86,5 +86,5 @@ Suspicious results were re-run on fresh seeds before being believed; the evoluti
 workload collapsed from a fitness of 0.94 to statistical noise when re-tested, which is exactly why that step exists.
 
 Findings are labelled **implementation bug** / **theoretical weakness** / **expected tradeoff** / **pathological
-workload** / **chaotic outlier** / **design case** (ARBF wins) — see `adversarial/corpus/CORPUS.md` for all 23, each with the single decision
-that caused it, found by counterfactual replay.
+workload** / **chaotic outlier** / **design case** (ARBF wins) — see `adversarial/corpus/CORPUS.md` for all 23; for each FIXED-arena ARBF loss
+it names the single decision that caused it, found by counterfactual replay.

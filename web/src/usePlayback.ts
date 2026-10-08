@@ -98,7 +98,8 @@ export function usePlayback(session: SimSession | null, startIndex: number) {
     setSpeed,
     play: () => { if (index >= n - 1) seek(-1); setPlaying(true); },
     pause: () => setPlaying(false),
-    step: () => { setPlaying(false); seek(target.current + 1); },   // from the requested frame
+    // while playing, the clock may already have requested the next frame: step from the one on screen
+    step: () => { seek((playing ? indexRef.current : target.current) + 1); setPlaying(false); },
     reset: () => { setPlaying(false); seek(-1); },
     runAll: () => { setPlaying(false); seek(n - 1); },
     seek: (i: number) => { setPlaying(false); seek(i); },

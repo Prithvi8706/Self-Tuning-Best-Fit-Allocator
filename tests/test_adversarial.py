@@ -177,3 +177,11 @@ def test_summaries_fall_back_to_committed_results_without_raw_records():
     with open(path, "rb") as f:
         assert f.read() == before
     assert cells and cells == json.loads(before)
+
+
+def test_corpus_build_fails_fast_without_raw_cold_start_records():
+    from adversarial import build_corpus
+    if os.path.exists(os.path.join(build_corpus.RESULTS, "coldstart.jsonl")):
+        pytest.skip("raw cold-start records present; this checks the fresh-clone path")
+    with pytest.raises(SystemExit, match="adversarial coldstart"):
+        build_corpus.build()

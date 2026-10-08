@@ -6,7 +6,7 @@ decision is made, and the chosen block is always the engine's. The candidate row
 are checked against the engine's choice so a description can never silently
 disagree with what the allocator actually did.
 """
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 from engine.algorithms import ARBF, NextFit
 from engine.memory import Block
@@ -118,8 +118,16 @@ def _arbf_decision(scores: dict, decision, chosen: Optional[Block], size: int) -
     }
 
 
-def _fits(row: dict, n: int) -> str:
-    return f"{row['fits']:,} of the {n:,} remembered request{'s' if n != 1 else ''} (Ĝ = {row['g']:.2f})"
+def _fits(row: dict, n: int, g: Optional[str] = None) -> str:
+    g = f"{row['g']:.2f}" if g is None else g
+    return f"{row['fits']:,} of the {n:,} remembered request{'s' if n != 1 else ''} (Ĝ = {g})"
+
+
+def _distinct(a: float, b: float, places: int = 2) -> Tuple[str, str]:
+    """a and b with the fewest decimals (at least `places`) at which unequal values print differently."""
+    while places < 6 and a != b and f"{a:.{places}f}" == f"{b:.{places}f}":
+        places += 1
+    return f"{a:.{places}f}", f"{b:.{places}f}"
 
 
 def _reason(path: str, scores: dict, rows: List[dict], chosen: Optional[Block], size: int) -> str:
@@ -155,9 +163,11 @@ def _reason(path: str, scores: dict, rows: List[dict], chosen: Optional[Block], 
                 f"{2 * b0['residual']:,}. None of those leftovers fits enough recent requests to justify the extra "
                 f"size, so the tightest block keeps the lowest score (K = {b0['cost']:,}) — the same choice as "
                 f"Best Fit.")
+    g0, g1 = _distinct(b0["g"], chosen_row["g"])
+    w0, w1 = _distinct(b0["weight"], chosen_row["weight"])
     return (f"{history}. Best Fit would take the {b0['size']:,}-unit block, leaving {b0['residual']:,} units, which fits "
-            f"{_fits(b0, n)}. ARBF instead took the {chosen_row['size']:,}-unit block: its leftover of "
-            f"{chosen_row['residual']:,} units fits {_fits(chosen_row, n)}. That lowers the learned weight "
-            f"(2 − Ĝ) from {b0['weight']:.2f} to {chosen_row['weight']:.2f}, enough to outweigh the larger "
+            f"{_fits(b0, n, g0)}. ARBF instead took the {chosen_row['size']:,}-unit block: its leftover of "
+            f"{chosen_row['residual']:,} units fits {_fits(chosen_row, n, g1)}. That lowers the learned weight "
+            f"(2 − Ĝ) from {w0} to {w1}, enough to outweigh the larger "
             f"leftover (K = {chosen_row['cost']:,} vs {b0['cost']:,}). ARBF accepted a larger leftover because, "
             f"by its recent history, that leftover is more likely to be reused.")

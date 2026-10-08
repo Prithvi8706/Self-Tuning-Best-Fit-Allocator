@@ -85,6 +85,11 @@ def from_family(name, family, seed, pressure, n_events, classification, context)
 
 
 def build() -> List[dict]:
+    cold = [c for c in (_json("coldstart_cells.json") or []) if c["pressure"] != "unbounded"
+            and c["q"] < 0.05 and c["arbf_worse"] > c["arbf_better"]]
+    cold_raw = os.path.join(RESULTS, "coldstart.jsonl")          # gitignored; its worst seeds are not summarized
+    if cold and not os.path.exists(cold_raw):
+        raise SystemExit("the corpus needs the raw cold-start records: run `python -m adversarial coldstart` first")
     entries = []
     for cname, make in constructions.CONSTRUCTIONS.items():
         c = make()
@@ -146,9 +151,7 @@ def build() -> List[dict]:
                                         "replication": stats_of(r) if r else None}))
         print("search", v["id"], flush=True)
 
-    cold = [c for c in (_json("coldstart_cells.json") or []) if c["pressure"] != "unbounded"
-            and c["q"] < 0.05 and c["arbf_worse"] > c["arbf_better"]]
-    raw = stats.load(os.path.join(RESULTS, "coldstart.jsonl")) if cold else []
+    raw = stats.load(cold_raw) if cold else []
     for c in cold:
         runs = [r for r in raw if (r["family"], r["n_events"], str(r["pressure"])) ==
                 (c["family"], c["n_events"], c["pressure"])]

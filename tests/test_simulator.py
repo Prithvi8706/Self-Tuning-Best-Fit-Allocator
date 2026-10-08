@@ -200,3 +200,10 @@ def test_negative_content_length_is_rejected_not_blocking():
         assert conn.getresponse().status == 400
     finally:
         httpd.shutdown()
+
+
+def test_deviation_reason_never_prints_unequal_weights_as_equal():
+    session = Session(build_workload({"kind": "corpus", "name": "outlier-F4-s0.10-0.05"}), "arbf")
+    a = session.frames(13054, 1)[0]["decision"]["arbf"]          # leftovers 383 vs 384 at n = 738
+    assert a["deviated"]
+    assert "from 1.371 to 1.367" in a["reason"] and "Ĝ = 0.629" in a["reason"] and "Ĝ = 0.633" in a["reason"]
