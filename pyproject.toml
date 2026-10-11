@@ -1,7 +1,7 @@
 [project]
 name = "arbf-engine"
 version = "0.1.0"
-description = "Allocation engine for the ARBF Version-1 study"
+description = "ARBF Version 1 allocator: frozen engine, benchmark framework, adversarial study and simulator"
 requires-python = ">=3.9"
 
 [tool.pytest.ini_options]

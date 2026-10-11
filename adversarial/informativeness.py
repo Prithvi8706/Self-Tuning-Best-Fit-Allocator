@@ -20,37 +20,34 @@ FAMILIES = ("F5", "F6", "F4-s0.02", "F7-L7380", "stale-trap", "alt-4W", "rep-adj
 PRESSURES = (0.0, 0.02, "unbounded")
 
 
+def _control_row(gt, pressure) -> dict:
+    """Best Fit, ARBF and a rate-matched history-blind deviator on one trace at one pressure."""
+    mode, capacity = mode_and_capacity(pressure, gt.peak_live)
+    res = compare(gt.events, mode, capacity, (BestFit, ARBF))
+    devs = res["arbf"]["arbf"]["deviations"]
+    rw = matched_random(gt.events, mode, capacity, devs, reps=1)
+    metric = rw["metric"]
+    return {"metric": metric, "best_fit": res["best_fit"][metric], "arbf": res["arbf"][metric],
+            "random": rw["values"][0], "arbf_deviations": devs, "random_deviations": rw["deviations"][0]}
+
+
 def _job(args):
     name, seed = args
     gt = generate_trace(get(name), seed, 50_000)
-    out = []
-    for pressure in PRESSURES:
-        mode, capacity = mode_and_capacity(pressure, gt.peak_live)
-        res = compare(gt.events, mode, capacity, (BestFit, ARBF))
-        devs = res["arbf"]["arbf"]["deviations"]
-        rw = matched_random(gt.events, mode, capacity, devs, reps=1)
-        metric = rw["metric"]
-        out.append({"family": name, "seed": seed, "pressure": pressure, "metric": metric,
-                    "best_fit": res["best_fit"][metric], "arbf": res["arbf"][metric], "random": rw["values"][0],
-                    "arbf_deviations": devs, "random_deviations": rw["deviations"][0]})
-    return out
+    return [{"family": name, "seed": seed, "pressure": pressure, **_control_row(gt, pressure)}
+            for pressure in PRESSURES]
 
 
 def _genome_job(args):
     from adversarial import search
     genome, seed = args
     gt = generate_trace(search.family(genome), seed, 50_000)
-    mode, capacity = mode_and_capacity(genome["pressure"], gt.peak_live)
-    res = compare(gt.events, mode, capacity, (BestFit, ARBF))
-    devs = res["arbf"]["arbf"]["deviations"]
-    rw = matched_random(gt.events, mode, capacity, devs, reps=1)
-    metric = rw["metric"]
-    return {"seed": seed, "metric": metric, "best_fit": res["best_fit"][metric], "arbf": res["arbf"][metric],
-            "random": rw["values"][0], "arbf_deviations": devs, "random_deviations": rw["deviations"][0]}
+    return {"seed": seed, **_control_row(gt, genome["pressure"])}
 
 
 def run_genome(genome: dict, path: str, seeds=range(30_000, 30_048), processes: int = 20) -> dict:
-    """Same control, applied to a search genome (used for the replicated ARBF-worse workload)."""
+    """Same control, applied to a search genome. `python -m adversarial informativeness` runs it on the
+    replicated ARBF-worse workload, producing results/search_worse_informativeness.json (REPORT §7)."""
     from adversarial.stats import _p
     with Pool(processes) as pool:
         rows = pool.map(_genome_job, [(genome, s) for s in seeds], chunksize=1)
@@ -63,7 +60,7 @@ def run_genome(genome: dict, path: str, seeds=range(30_000, 30_048), processes: 
                           "random": total("random_deviations") / len(rows)},
            "arbf_better_than_random": sum(x < 0 for x in a), "arbf_worse_than_random": sum(x > 0 for x in a),
            "p_arbf_vs_random": _p(a), "p_arbf_vs_bf": _p(b), "p_random_vs_bf": _p(c)}
-    with open(path, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(out, f, indent=1)
     return out
 

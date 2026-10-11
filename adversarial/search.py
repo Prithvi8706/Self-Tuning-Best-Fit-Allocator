@@ -16,7 +16,7 @@ import random
 import statistics
 import time
 from multiprocessing import Pool
-from typing import List, Optional
+from typing import List
 
 from adversarial.controls import BestFitHigh
 from adversarial.families import Schedule, W

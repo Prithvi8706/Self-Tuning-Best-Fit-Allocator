@@ -10,10 +10,10 @@
 * timeline(): deviation rate and residual usefulness per window of W ALLOCs,
   to show history lag after a workload change.
 """
-from typing import Dict, List, Optional, Sequence
+from typing import List, Optional
 
 from adversarial.controls import random_window
-from adversarial.measure import Deviation, ProbeResult, blame, compare, probe
+from adversarial.measure import ProbeResult, blame, compare, probe
 from engine.algorithms.arbf import W
 from engine.memory import Mode
 

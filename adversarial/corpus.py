@@ -12,12 +12,12 @@ import json
 import os
 from typing import Dict, List, Optional, Tuple
 
-from adversarial import constructions, search
+from adversarial import constructions
 from adversarial.families import get
 from adversarial.measure import compare
 from engine.memory import Mode
 from engine.trace import Op, alloc, free, make_trace
-from framework.generator import generate_trace, trace_sha256
+from framework.generator import _canonical_lines, generate_trace, trace_sha256
 
 HERE = os.path.join(os.path.dirname(__file__), "corpus")
 MANIFEST = os.path.join(HERE, "manifest.json")
@@ -40,8 +40,7 @@ def write_trace(name: str, events) -> str:
     os.makedirs(HERE, exist_ok=True)
     path = os.path.join(HERE, f"{name}.trace.gz")
     with gzip.GzipFile(path, "wb", mtime=0) as f:                   # mtime=0: byte-stable files
-        for e in events:
-            f.write((f"A {e.alloc_id} {e.size}\n" if e.op is Op.ALLOC else f"F {e.alloc_id}\n").encode("ascii"))
+        f.writelines(line.encode("ascii") for line in _canonical_lines(events))
     return os.path.basename(path)
 
 
@@ -57,7 +56,11 @@ def regenerate(entry: dict):
     src = entry["source"]
     if src["kind"] == "construction":
         return constructions.CONSTRUCTIONS[src["name"]]().events
-    fam = get(src["family"]) if src["kind"] == "family" else search.family(src["genome"])
+    if src["kind"] == "family":
+        fam = get(src["family"])
+    else:
+        from adversarial import search        # imports scipy; only search-found entries need it
+        fam = search.family(src["genome"])
     return generate_trace(fam, src["seed"], src["n_events"]).events[:entry["prefix"]]
 
 
@@ -87,7 +90,6 @@ def verify(entry: dict) -> Tuple[bool, str]:
 def best_prefix(events, mode: Mode, capacity: Optional[int]) -> int:
     """Shortest prefix that keeps the full-trace ARBF-minus-Best-Fit failure gap (FIXED),
     or that contains ARBF's peak heap end (UNBOUNDED). A prefix replays identically."""
-    res = compare(events, mode, capacity)
     if mode is Mode.UNBOUNDED:
         from engine.algorithms import ARBF
         from engine.memory import Heap
@@ -97,6 +99,7 @@ def best_prefix(events, mode: Mode, capacity: Optional[int]) -> int:
             if a.heap.end > peak:
                 peak, at = a.heap.end, i
         return at + 1
+    res = compare(events, mode, capacity)
     fa, fb = res["arbf"]["failed_event_indices"], res["best_fit"]["failed_event_indices"]
     marks = sorted([(i, +1) for i in fa] + [(i, -1) for i in fb])
     gap, best, best_at = 0, 0, len(events) - 1

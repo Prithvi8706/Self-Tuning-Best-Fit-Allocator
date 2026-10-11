@@ -5,7 +5,6 @@ traces are pure functions of (family, seed, n_events) and hash-verifiable. Each
 family is tagged with the stress category it probes. Parameters were chosen
 before any run of this study, from the mechanism each family targets.
 """
-import random
 from typing import Dict, List, Sequence, Tuple
 
 from framework.laws import (Constant, Exponential, Geometric, Law, LogNormal, LogUniform, Mixture,

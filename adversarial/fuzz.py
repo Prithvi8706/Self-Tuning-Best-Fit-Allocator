@@ -11,7 +11,7 @@ enough to fail often, and UNBOUNDED extension.
 import random
 from collections import deque
 from multiprocessing import Pool
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 from engine.algorithms import ARBF
 from engine.algorithms.arbf import W
@@ -45,7 +45,7 @@ def _trace(rng: random.Random, dist: str, n_events: int, free_prob: float):
     return make_trace(events)
 
 
-def reference(blocks: List[Block], size: int, history) -> Block:
+def reference(blocks: List[Block], size: int, history) -> Optional[Block]:
     fitting = [b for b in blocks if b.size >= size]
     if not fitting:
         return None

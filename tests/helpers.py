@@ -64,13 +64,6 @@ def ref_next_fit(blocks: List[Block], size: int, rover: int) -> Optional[Block]:
     return next((b for b in order if b.size >= size), None)
 
 
-def ref_arbf_cost(r: int, history: Sequence[int]) -> int:
-    """(n+1)·J(r) with J(r) = r·(2 − c(r)/(n+1)), straight from spec §5."""
-    n = len(history)
-    c = sum(1 for s in history if s <= r)
-    return r * (2 * (n + 1) - c)
-
-
 def ref_arbf(blocks: List[Block], size: int, history: Sequence[int]) -> Optional[Block]:
     """Full scan of every fitting block: lexicographic min of (K, size, addr)."""
     fitting = [b for b in blocks if b.size >= size]

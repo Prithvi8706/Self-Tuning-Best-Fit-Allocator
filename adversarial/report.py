@@ -11,20 +11,41 @@ RESULTS = os.path.join(os.path.dirname(__file__), "results")
 
 
 def _load_jsonl(name):
+    """Raw per-run records, or None when absent (they are gitignored; the stages regenerate them)."""
     path = os.path.join(RESULTS, name)
-    return stats.load(path) if os.path.exists(path) else []
+    return stats.load(path) if os.path.exists(path) else None
+
+
+def _committed(name):
+    """The committed summary, used when its raw records are absent — so a fresh clone rebuilds
+    tables.md from the study's results instead of overwriting them with empty ones."""
+    path = os.path.join(RESULTS, name)
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _write_json(name, obj):
+    with open(os.path.join(RESULTS, name), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(obj, f, indent=1)
 
 
 def sweep_cells():
-    cells = stats.summarize(_load_jsonl("sweep.jsonl"))
-    with open(os.path.join(RESULTS, "sweep_cells.json"), "w", encoding="utf-8") as f:
-        json.dump(cells, f, indent=1)
+    records = _load_jsonl("sweep.jsonl")
+    if records is None:
+        return _committed("sweep_cells.json")
+    cells = stats.summarize(records)
+    _write_json("sweep_cells.json", cells)
     return cells
 
 
 def coldstart_cells():
+    records = _load_jsonl("coldstart.jsonl")
+    if records is None:
+        return _committed("coldstart_cells.json")
     groups = defaultdict(list)
-    for r in _load_jsonl("coldstart.jsonl"):
+    for r in records:
         groups[(r["family"], r["n_events"], str(r["pressure"]))].append(r)
     rows = []
     for (family, n, pressure), recs in sorted(groups.items()):
@@ -41,21 +62,23 @@ def coldstart_cells():
                      "deviations_with_history_below_50": sum(h < 50 for h in hist)})
     for r, q in zip(rows, bh([r["p"] for r in rows])):
         r["q"] = q
-    with open(os.path.join(RESULTS, "coldstart_cells.json"), "w", encoding="utf-8") as f:
-        json.dump(rows, f, indent=1)
+    _write_json("coldstart_cells.json", rows)
     fixed = [r for recs in groups.values() for r in recs if r["pressure"] != "unbounded"]
     if fixed:
         worst = max(fixed, key=lambda r: (r["fails_arbf"] - r["fails_best_fit"], -r["n_events"]))
-        with open(os.path.join(RESULTS, "coldstart_worst.json"), "w", encoding="utf-8") as f:
-            json.dump({k: worst[k] for k in ("family", "n_events", "seed", "pressure", "fails_arbf",
-                                             "fails_best_fit", "fails_best_fit_high")}, f, indent=1)
+        _write_json("coldstart_worst.json", {k: worst[k] for k in ("family", "n_events", "seed", "pressure",
+                                                                     "fails_arbf", "fails_best_fit",
+                                                                     "fails_best_fit_high")})
     return rows
 
 
 def informativeness_cells():
     """ARBF vs a history-blind deviator making ~the same number of deviations, per cell."""
+    records = _load_jsonl("informativeness.jsonl")
+    if records is None:
+        return _committed("informativeness_cells.json")
     groups = defaultdict(list)
-    for r in _load_jsonl("informativeness.jsonl"):
+    for r in records:
         groups[(r["family"], str(r["pressure"]))].append(r)
     rows = []
     for (family, pressure), recs in sorted(groups.items()):
@@ -74,18 +97,16 @@ def informativeness_cells():
     for key in ("p_arbf_vs_random", "p_arbf_vs_bf", "p_random_vs_bf"):
         for r, q in zip(rows, bh([r[key] for r in rows])):
             r[key.replace("p_", "q_")] = q
-    with open(os.path.join(RESULTS, "informativeness_cells.json"), "w", encoding="utf-8") as f:
-        json.dump(rows, f, indent=1)
+    _write_json("informativeness_cells.json", rows)
     return rows
 
 
 def confirm_cells():
     records = _load_jsonl("confirm.jsonl")
-    if not records:
-        return []
+    if records is None:
+        return _committed("confirm_cells.json")
     cells = stats.summarize(records)
-    with open(os.path.join(RESULTS, "confirm_cells.json"), "w", encoding="utf-8") as f:
-        json.dump(cells, f, indent=1)
+    _write_json("confirm_cells.json", cells)
     return cells
 
 
